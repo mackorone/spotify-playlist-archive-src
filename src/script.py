@@ -642,7 +642,7 @@ async def update_files_impl(now: datetime.datetime, spotify: Spotify) -> None:
         f.write("\n".join(lines) + "\n")
 
 
-def run(args: Sequence[str]) -> subprocess.CompletedProcess[bytes]:
+def run(args: Sequence[str]) -> subprocess.CompletedProcess:  # pyre-fixme[24]
     logger.info("- Running: {}".format(args))
     result = subprocess.run(
         args=args,
