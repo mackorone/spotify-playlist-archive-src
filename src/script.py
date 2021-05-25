@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import aiohttp
 import argparse
 import asyncio
 import base64
@@ -12,6 +11,7 @@ import re
 import subprocess
 from contextlib import asynccontextmanager
 
+import aiohttp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
