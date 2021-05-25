@@ -1,3 +1,6 @@
 -r requirements.in
 
-black==20.8b1
+black
+flake8
+isort
+pyre-check
