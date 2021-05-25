@@ -3,45 +3,55 @@
 import argparse
 import asyncio
 import base64
-import collections
 import datetime
 import logging
 import os
 import re
 import subprocess
 from contextlib import asynccontextmanager
+from typing import (
+    Any,
+    AsyncContextManager,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+)
 
 import aiohttp
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-Playlist = collections.namedtuple(
-    "Playlist",
-    [
-        "url",
-        "name",
-        "description",
-        "tracks",
-    ],
-)
+class Artist(NamedTuple):
+    url: str
+    name: str
 
-Track = collections.namedtuple(
-    "Track",
-    [
-        "id",
-        "url",
-        "duration_ms",
-        "name",
-        "album",
-        "artists",
-    ],
-)
 
-Album = collections.namedtuple("Album", ["url", "name"])
+class Album(NamedTuple):
+    url: str
+    name: str
 
-Artist = collections.namedtuple("Artist", ["url", "name"])
+
+class Track(NamedTuple):
+    id_: str
+    url: str
+    duration_ms: int
+    name: str
+    album: Album
+    artists: Sequence[Artist]
+
+
+class Playlist(NamedTuple):
+    url: str
+    name: str
+    description: str
+    tracks: Sequence[Track]
 
 
 class InvalidAccessTokenError(Exception):
@@ -60,16 +70,20 @@ class Spotify:
 
     BASE_URL = "https://api.spotify.com/v1/playlists/"
 
-    def __init__(self, access_token):
+    def __init__(self, access_token: str) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
         self._session = aiohttp.ClientSession(headers=headers)
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
-        self._session.get = self._make_retryable(self._session.get)
+        self._session.get = self._make_retryable(self._session.get)  # pyre-fixme[8]
 
-    def _make_retryable(self, func):
+    def _make_retryable(
+        self, func: Callable[[str], aiohttp.client._RequestContextManager]
+    ) -> Callable[[str], AsyncContextManager[aiohttp.client_reqrep.ClientResponse]]:
         @asynccontextmanager
-        async def wrapper(*args, **kwargs):
+        async def wrapper(
+            *args: Any, **kwargs: Any
+        ) -> AsyncIterator[aiohttp.client_reqrep.ClientResponse]:
             while True:
                 response = await func(*args, **kwargs)
                 if response.status != 429:
@@ -87,13 +101,13 @@ class Spotify:
 
         return wrapper
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         await self._session.close()
         # Sleep to allow underlying connections to close
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0)
 
-    async def get_playlist(self, playlist_id, aliases):
+    async def get_playlist(self, playlist_id: str, aliases: Dict[str, str]) -> Playlist:
         playlist_href = self._get_playlist_href(playlist_id)
         async with self._session.get(playlist_href) as response:
             data = await response.json(content_type=None)
@@ -136,7 +150,7 @@ class Spotify:
         tracks = await self._get_tracks(playlist_id)
         return Playlist(url=url, name=name, description=description, tracks=tracks)
 
-    async def _get_tracks(self, playlist_id):
+    async def _get_tracks(self, playlist_id: str) -> Sequence[Track]:
         tracks = []
         tracks_href = self._get_tracks_href(playlist_id)
 
@@ -181,7 +195,7 @@ class Spotify:
 
                 tracks.append(
                     Track(
-                        id=id_,
+                        id_=id_,
                         url=url,
                         duration_ms=duration_ms,
                         name=name,
@@ -198,17 +212,17 @@ class Spotify:
         return tracks
 
     @classmethod
-    def _get_url(cls, external_urls):
+    def _get_url(cls, external_urls: Dict[str, str]) -> str:
         return (external_urls or {}).get("spotify")
 
     @classmethod
-    def _get_playlist_href(cls, playlist_id):
+    def _get_playlist_href(cls, playlist_id: str) -> str:
         rest = "{}?fields=external_urls,name,description"
         template = cls.BASE_URL + rest
         return template.format(playlist_id)
 
     @classmethod
-    def _get_tracks_href(cls, playlist_id):
+    def _get_tracks_href(cls, playlist_id: str) -> str:
         rest = (
             "{}/tracks?fields=next,items.track(id,external_urls,"
             "duration_ms,name,album(external_urls,name),artists)"
@@ -217,7 +231,7 @@ class Spotify:
         return template.format(playlist_id)
 
     @classmethod
-    async def get_access_token(cls, client_id, client_secret):
+    async def get_access_token(cls, client_id: str, client_secret: str) -> str:
         joined = "{}:{}".format(client_id, client_secret)
         encoded = base64.b64encode(joined.encode()).decode()
 
@@ -258,7 +272,7 @@ class Formatter:
     LINK_REGEX = r"\[(.+?)\]\(.+?\)"
 
     @classmethod
-    def plain(cls, playlist_id, playlist):
+    def plain(cls, playlist_id: str, playlist: Playlist) -> str:
         lines = [cls._plain_line_from_track(track) for track in playlist.tracks]
         # Sort alphabetically to minimize changes when tracks are reordered
         sorted_lines = sorted(lines, key=lambda line: line.lower())
@@ -266,7 +280,7 @@ class Formatter:
         return "\n".join(header + sorted_lines)
 
     @classmethod
-    def pretty(cls, playlist_id, playlist):
+    def pretty(cls, playlist_id: str, playlist: Playlist) -> str:
         columns = [
             cls.TRACK_NO,
             cls.TITLE,
@@ -306,7 +320,13 @@ class Formatter:
         return "\n".join(lines)
 
     @classmethod
-    def cumulative(cls, now, prev_content, playlist_id, playlist):
+    def cumulative(
+        cls,
+        now: datetime.datetime,
+        prev_content: str,
+        playlist_id: str,
+        playlist: Playlist,
+    ) -> str:
         today = now.strftime("%Y-%m-%d")
         columns = [
             cls.TITLE,
@@ -337,8 +357,7 @@ class Formatter:
         for track in playlist.tracks:
             # Get the row for the given track
             key = cls._plain_line_from_track(track).lower()
-            row = rows.get(key, {column: None for column in columns})
-            rows[key] = row
+            row = rows.setdefault(key, {column: None for column in columns})
             # Update row values
             row[cls.TITLE] = cls._link(track.name, track.url)
             row[cls.ARTISTS] = cls.ARTIST_SEPARATOR.join(
@@ -361,12 +380,12 @@ class Formatter:
     @classmethod
     def _markdown_header_lines(
         cls,
-        playlist_name,
-        playlist_url,
-        playlist_id,
-        playlist_description,
-        is_cumulative,
-    ):
+        playlist_name: str,
+        playlist_url: str,
+        playlist_id: str,
+        playlist_description: str,
+        is_cumulative: bool,
+    ) -> List[str]:
         if is_cumulative:
             pretty = cls._link("pretty", URL.pretty(playlist_name))
             cumulative = "cumulative"
@@ -389,7 +408,9 @@ class Formatter:
         ]
 
     @classmethod
-    def _rows_from_prev_content(cls, today, prev_content, divider_line):
+    def _rows_from_prev_content(
+        cls, today: str, prev_content: str, divider_line: str
+    ) -> Dict[str, Dict[str, Optional[str]]]:
         rows = {}
         if not prev_content:
             return rows
@@ -433,7 +454,7 @@ class Formatter:
         return rows
 
     @classmethod
-    def _plain_line_from_track(cls, track):
+    def _plain_line_from_track(cls, track: Track) -> str:
         return cls._plain_line_from_names(
             track_name=track.name,
             artist_names=[artist.name for artist in track.artists],
@@ -441,7 +462,9 @@ class Formatter:
         )
 
     @classmethod
-    def _plain_line_from_names(cls, track_name, artist_names, album_name):
+    def _plain_line_from_names(
+        cls, track_name: str, artist_names: Sequence[str], album_name: str
+    ) -> str:
         return "{} -- {} -- {}".format(
             track_name,
             cls.ARTIST_SEPARATOR.join(artist_names),
@@ -449,18 +472,18 @@ class Formatter:
         )
 
     @classmethod
-    def _link(cls, text, url):
+    def _link(cls, text: str, url: str) -> str:
         if not url:
             return text
         return "[{}]({})".format(text, url)
 
     @classmethod
-    def _unlink(cls, link):
+    def _unlink(cls, link: str) -> str:
         match = re.match(cls.LINK_REGEX, link)
         return match and match.group(1) or ""
 
     @classmethod
-    def _format_duration(cls, duration_ms):
+    def _format_duration(cls, duration_ms: int) -> str:
         seconds = int(duration_ms // 1000)
         timedelta = str(datetime.timedelta(seconds=seconds))
 
@@ -480,25 +503,25 @@ class URL:
     )
 
     @classmethod
-    def plain_history(cls, playlist_id):
+    def plain_history(cls, playlist_id: str) -> str:
         return cls.HISTORY_BASE + "/plain/{}".format(playlist_id)
 
     @classmethod
-    def plain(cls, playlist_id):
+    def plain(cls, playlist_id: str) -> str:
         return cls.BASE + "/plain/{}".format(playlist_id)
 
     @classmethod
-    def pretty(cls, playlist_name):
+    def pretty(cls, playlist_name: str) -> str:
         sanitized = playlist_name.replace(" ", "%20")
         return cls.BASE + "/pretty/{}.md".format(sanitized)
 
     @classmethod
-    def cumulative(cls, playlist_name):
+    def cumulative(cls, playlist_name: str) -> str:
         sanitized = playlist_name.replace(" ", "%20")
         return cls.BASE + "/cumulative/{}.md".format(sanitized)
 
 
-async def update_files(now):
+async def update_files(now: datetime.datetime) -> None:
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -513,7 +536,7 @@ async def update_files(now):
         await spotify.shutdown()
 
 
-async def update_files_impl(now, spotify):
+async def update_files_impl(now: datetime.datetime, spotify: Spotify) -> None:
     aliases_dir = "playlists/aliases"
     plain_dir = "playlists/plain"
     pretty_dir = "playlists/pretty"
@@ -565,22 +588,21 @@ async def update_files_impl(now, spotify):
             pretty_path = "{}/{}.md".format(pretty_dir, playlist.name)
             cumulative_path = "{}/{}.md".format(cumulative_dir, playlist.name)
 
-            for path, func, flag in [
-                (plain_path, Formatter.plain, False),
-                (pretty_path, Formatter.pretty, False),
-                (cumulative_path, Formatter.cumulative, True),
-            ]:
+            for path in [plain_path, pretty_path, cumulative_path]:
                 try:
                     prev_content = "".join(open(path).readlines())
                 except Exception:
-                    prev_content = None
+                    prev_content = ""
 
-                if flag:
-                    args = [now, prev_content, playlist_id, playlist]
+                if path == plain_path:
+                    content = Formatter.plain(playlist_id, playlist)
+                elif path == pretty_path:
+                    content = Formatter.pretty(playlist_id, playlist)
                 else:
-                    args = [playlist_id, playlist]
+                    content = Formatter.cumulative(
+                        now, prev_content, playlist_id, playlist
+                    )
 
-                content = func(*args)
                 if content == prev_content:
                     logger.info("No changes to file: {}".format(path))
                 else:
@@ -620,7 +642,7 @@ async def update_files_impl(now, spotify):
         f.write("\n".join(lines) + "\n")
 
 
-def run(args):
+def run(args: Sequence[str]) -> subprocess.CompletedProcess[bytes]:
     logger.info("- Running: {}".format(args))
     result = subprocess.run(
         args=args,
@@ -631,7 +653,7 @@ def run(args):
     return result
 
 
-def push_updates(now):
+def push_updates(now: datetime.datetime) -> None:
     diff = run(["git", "status", "-s"])
     has_changes = bool(diff.stdout)
 
@@ -667,7 +689,7 @@ def push_updates(now):
 
     logger.info("Rebasing onto main")
     rebase = run(["git", "rebase", "HEAD", "main"])
-    if commit.returncode != 0:
+    if rebase.returncode != 0:
         raise Exception("Failed to rebase onto main")
 
     logger.info("Removing origin")
@@ -692,7 +714,7 @@ def push_updates(now):
         raise Exception("Failed to push changes")
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="Snapshot Spotify playlists")
     parser.add_argument(
         "--push",

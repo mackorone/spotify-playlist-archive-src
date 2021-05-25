@@ -1,5 +1,4 @@
 - Add unit tests
-- Add type hints
 - Splitting by `" | "` breaks for some tracks
 - Clean up near-duplicates in cumulative playlists
 - Automatically add all "Spotify" user playlists
