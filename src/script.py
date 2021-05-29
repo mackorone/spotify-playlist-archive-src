@@ -2,260 +2,19 @@
 
 import argparse
 import asyncio
-import base64
 import datetime
 import logging
 import os
 import re
 import subprocess
-from contextlib import asynccontextmanager
-from typing import (
-    Any,
-    AsyncContextManager,
-    AsyncIterator,
-    Callable,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-)
+from typing import Dict, List, Optional, Sequence
 
-import aiohttp
-
+from external import allow_external_calls
+from spotify import InvalidPlaylistError, Playlist, PrivatePlaylistError, Spotify, Track
+from url import URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-class Artist(NamedTuple):
-    url: str
-    name: str
-
-
-class Album(NamedTuple):
-    url: str
-    name: str
-
-
-class Track(NamedTuple):
-    id_: str
-    url: str
-    duration_ms: int
-    name: str
-    album: Album
-    artists: Sequence[Artist]
-
-
-class Playlist(NamedTuple):
-    url: str
-    name: str
-    description: str
-    tracks: Sequence[Track]
-
-
-class InvalidAccessTokenError(Exception):
-    pass
-
-
-class InvalidPlaylistError(Exception):
-    pass
-
-
-class PrivatePlaylistError(Exception):
-    pass
-
-
-class Spotify:
-
-    BASE_URL = "https://api.spotify.com/v1/playlists/"
-
-    def __init__(self, access_token: str) -> None:
-        headers = {"Authorization": f"Bearer {access_token}"}
-        self._session = aiohttp.ClientSession(headers=headers)
-        # Handle rate limiting by retrying
-        self._retry_budget_seconds: int = 30
-        self._session.get = self._make_retryable(self._session.get)  # pyre-fixme[8]
-
-    def _make_retryable(
-        self, func: Callable[[str], aiohttp.client._RequestContextManager]
-    ) -> Callable[[str], AsyncContextManager[aiohttp.client_reqrep.ClientResponse]]:
-        @asynccontextmanager
-        async def wrapper(
-            *args: Any, **kwargs: Any
-        ) -> AsyncIterator[aiohttp.client_reqrep.ClientResponse]:
-            while True:
-                response = await func(*args, **kwargs)
-                if response.status != 429:
-                    yield response
-                    return
-                # Add an extra second, just to be safe
-                # https://stackoverflow.com/a/30557896/3176152
-                backoff_seconds = int(response.headers["Retry-After"]) + 1
-                self._retry_budget_seconds -= backoff_seconds
-                if self._retry_budget_seconds <= 0:
-                    raise Exception("Retry budget exceeded")
-                else:
-                    logger.warning(f"Rate limited, will retry after {backoff_seconds}s")
-                    await asyncio.sleep(backoff_seconds)
-
-        return wrapper
-
-    async def shutdown(self) -> None:
-        await self._session.close()
-        # Sleep to allow underlying connections to close
-        # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-        await asyncio.sleep(0)
-
-    async def get_playlist(self, playlist_id: str, aliases: Dict[str, str]) -> Playlist:
-        playlist_href = self._get_playlist_href(playlist_id)
-        async with self._session.get(playlist_href) as response:
-            data = await response.json(content_type=None)
-
-        error = data.get("error")
-        if error:
-            if error.get("status") == 401:
-                raise InvalidAccessTokenError
-            elif error.get("status") == 403:
-                raise PrivatePlaylistError
-            elif error.get("status") == 404:
-                raise InvalidPlaylistError
-            else:
-                raise Exception("Failed to get playlist: {}".format(error))
-
-        url = self._get_url(data["external_urls"])
-
-        # If the playlist has an alias, use it
-        if playlist_id in aliases:
-            name = aliases[playlist_id]
-        else:
-            name = data["name"]
-
-        # Playlist names can't have "/" or "\" so use " " instead
-        name = name.replace("/", " ")
-        name = name.replace("\\", " ")
-        # Windows filenames can't have ":" so use " -" instead
-        name = name.replace(":", " -")
-        # Windows filenames can't have "|" so use "-" instead
-        name = name.replace("|", "-")
-        # Windows filenames can't have "?" so just remove them
-        name = name.replace("?", "")
-        # Playlist names shouldn't have enclosing spaces or dots
-        name = name.strip(" .")
-
-        if not name:
-            raise Exception(f"Empty playlist name: {playlist_id}")
-
-        description = data["description"]
-        tracks = await self._get_tracks(playlist_id)
-        return Playlist(url=url, name=name, description=description, tracks=tracks)
-
-    async def _get_tracks(self, playlist_id: str) -> Sequence[Track]:
-        tracks = []
-        tracks_href = self._get_tracks_href(playlist_id)
-
-        while tracks_href:
-            async with self._session.get(tracks_href) as response:
-                data = await response.json(content_type=None)
-
-            error = data.get("error")
-            if error:
-                raise Exception("Failed to get tracks: {}".format(error))
-
-            for item in data["items"]:
-                track = item["track"]
-                if not track:
-                    continue
-
-                id_ = track["id"]
-                url = self._get_url(track["external_urls"])
-                duration_ms = track["duration_ms"]
-
-                name = track["name"]
-                album = track["album"]["name"]
-
-                if not name:
-                    logger.warning("Empty track name: {}".format(url))
-                    name = "<MISSING>"
-                if not album:
-                    logger.warning("Empty track album: {}".format(url))
-                    album = "<MISSING>"
-
-                artists = []
-                for artist in track["artists"]:
-                    artists.append(
-                        Artist(
-                            url=self._get_url(artist["external_urls"]),
-                            name=artist["name"],
-                        )
-                    )
-
-                if not artists:
-                    logger.warning("Empty track artists: {}".format(url))
-
-                tracks.append(
-                    Track(
-                        id_=id_,
-                        url=url,
-                        duration_ms=duration_ms,
-                        name=name,
-                        album=Album(
-                            url=self._get_url(track["album"]["external_urls"]),
-                            name=album,
-                        ),
-                        artists=artists,
-                    )
-                )
-
-            tracks_href = data["next"]
-
-        return tracks
-
-    @classmethod
-    def _get_url(cls, external_urls: Dict[str, str]) -> str:
-        return (external_urls or {}).get("spotify")
-
-    @classmethod
-    def _get_playlist_href(cls, playlist_id: str) -> str:
-        rest = "{}?fields=external_urls,name,description"
-        template = cls.BASE_URL + rest
-        return template.format(playlist_id)
-
-    @classmethod
-    def _get_tracks_href(cls, playlist_id: str) -> str:
-        rest = (
-            "{}/tracks?fields=next,items.track(id,external_urls,"
-            "duration_ms,name,album(external_urls,name),artists)"
-        )
-        template = cls.BASE_URL + rest
-        return template.format(playlist_id)
-
-    @classmethod
-    async def get_access_token(cls, client_id: str, client_secret: str) -> str:
-        joined = "{}:{}".format(client_id, client_secret)
-        encoded = base64.b64encode(joined.encode()).decode()
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://accounts.spotify.com/api/token",
-                data={"grant_type": "client_credentials"},
-                headers={"Authorization": "Basic {}".format(encoded)},
-            ) as response:
-                data = await response.json()
-
-        error = data.get("error")
-        if error:
-            raise Exception("Failed to get access token: {}".format(error))
-
-        access_token = data.get("access_token")
-        if not access_token:
-            raise Exception("Invalid access token: {}".format(access_token))
-
-        token_type = data.get("token_type")
-        if token_type != "Bearer":
-            raise Exception("Invalid token type: {}".format(token_type))
-
-        return access_token
 
 
 class Formatter:
@@ -494,33 +253,6 @@ class Formatter:
         return timedelta[index:]
 
 
-class URL:
-
-    BASE = "/playlists"
-    HISTORY_BASE = (
-        "https://github.githistory.xyz/mackorone/spotify-playlist-archive/"
-        "blob/main/playlists"
-    )
-
-    @classmethod
-    def plain_history(cls, playlist_id: str) -> str:
-        return cls.HISTORY_BASE + "/plain/{}".format(playlist_id)
-
-    @classmethod
-    def plain(cls, playlist_id: str) -> str:
-        return cls.BASE + "/plain/{}".format(playlist_id)
-
-    @classmethod
-    def pretty(cls, playlist_name: str) -> str:
-        sanitized = playlist_name.replace(" ", "%20")
-        return cls.BASE + "/pretty/{}.md".format(sanitized)
-
-    @classmethod
-    def cumulative(cls, playlist_name: str) -> str:
-        sanitized = playlist_name.replace(" ", "%20")
-        return cls.BASE + "/cumulative/{}.md".format(sanitized)
-
-
 async def update_files(now: datetime.datetime) -> None:
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -732,4 +464,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    allow_external_calls()
     asyncio.run(main())
