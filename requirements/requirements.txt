@@ -18,7 +18,16 @@ multidict==5.1.0
     # via
     #   aiohttp
     #   yarl
+mypy-extensions==0.4.3
+    # via typing-inspect
+pyre-extensions==0.0.21
+    # via -r requirements/requirements.in
 typing-extensions==3.7.4.3
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   pyre-extensions
+    #   typing-inspect
+typing-inspect==0.6.0
+    # via pyre-extensions
 yarl==1.6.3
     # via aiohttp

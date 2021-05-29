@@ -59,7 +59,9 @@ pyflakes==2.3.1
 pyre-check==0.9.3
     # via -r requirements/requirements-dev.in
 pyre-extensions==0.0.21
-    # via pyre-check
+    # via
+    #   -r requirements/requirements.in
+    #   pyre-check
 pywatchman==1.4.1
     # via pyre-check
 pyyaml==5.4.1
