@@ -1,50 +1,45 @@
 #!/usr/bin/env python3
 
-from types import TracebackType
-from typing import Any, Optional, Type
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from async_mock import AsyncMock
-from spotify import Spotify, FailedToGetAccessTokenError, FailedToGetTracksError
+from spotify import FailedToGetAccessTokenError, FailedToGetTracksError, Spotify
 
 
-class FakeSession:
-    def __init__(self) -> None:
+class MockSession(AsyncMock):
+    async def async_init(self) -> None:
+        # AsyncMock objects beget other AsyncMock objects, but these methods
+        # are synchronous, so we need initialize them explicitly
         self.get = Mock(return_value=AsyncMock())
         self.post = Mock(return_value=AsyncMock())
-        self.close = AsyncMock()
-        self._session = Mock()
-        self._session.get = self.get
-        self._session.post = self.post
-
-    async def __aenter__(self) -> Mock:
-        return self._session
-
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
-    ) -> None:
-        await self.close()
+        # Allow MockSession objects to be used as async context managers
+        async with self as session:
+            session.get = self.get
+            session.post = self.post
 
 
 class SpotifyTestCase(IsolatedAsyncioTestCase):
-    def _patch(self, target: str, return_value: Any) -> Mock:  # pyre-fixme[2]
-        patcher = patch(target, return_value=return_value)
+    def _patch(
+        self,
+        target: str,
+        new_callable=None,  # pyre-fixme[2]
+        return_value=None,  # pyre-fixme[2]
+    ) -> Mock:
+        patcher = patch(target, new_callable=new_callable, return_value=return_value)
         mock_object = patcher.start()
         self.addCleanup(patcher.stop)
         return mock_object
 
-    def setUp(self) -> None:
-        self.mock_session = FakeSession()
+    async def asyncSetUp(self) -> None:
+        self.mock_session = MockSession()
+        await self.mock_session.async_init()
         self.mock_get_session = self._patch(
-            target="spotify.Spotify._get_session",
+            "spotify.Spotify._get_session",
             return_value=self.mock_session,
         )
         self.mock_sleep = self._patch(
-            target="spotify.Spotify._sleep", return_value=AsyncMock()
+            "spotify.Spotify._sleep",
+            new_callable=AsyncMock,
         )
 
 
@@ -113,4 +108,3 @@ class TestGetAccessToken(SpotifyTestCase):
             data={"grant_type": "client_credentials"},
             headers={"Authorization": "Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ="},
         )
-        self.mock_session.close.assert_called_once()
