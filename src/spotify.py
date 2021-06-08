@@ -165,6 +165,11 @@ class Spotify:
             async with self._session.get(tracks_href) as response:
                 data = await response.json(content_type=None)
 
+            if not isinstance(data, dict):
+                raise FailedToGetTracksError(f"Invalid response: {data}")
+            if not data:
+                raise FailedToGetTracksError(f"Empty response: {data}")
+
             error = data.get("error")
             if error:
                 raise FailedToGetTracksError("Failed to get tracks: {}".format(error))
@@ -218,7 +223,7 @@ class Spotify:
 
     @classmethod
     def _get_url(cls, external_urls: Dict[str, str]) -> str:
-        return (external_urls or {}).get("spotify")
+        return (external_urls or {}).get("spotify") or ""
 
     @classmethod
     def _get_playlist_href(cls, playlist_id: str) -> str:

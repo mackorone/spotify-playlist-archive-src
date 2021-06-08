@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
 
-from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, Mock, patch
+from __future__ import annotations
 
-from spotify import FailedToGetAccessTokenError, FailedToGetTracksError, Spotify
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import AsyncMock, Mock, call, patch
+
+from spotify import (
+    Album,
+    Artist,
+    FailedToGetAccessTokenError,
+    FailedToGetTracksError,
+    Spotify,
+    Track,
+)
 
 
 class MockSession(AsyncMock):
-    async def async_init(self) -> None:
+    @classmethod
+    async def create(cls) -> MockSession:
+        mock_session = MockSession()
+        await mock_session._init()
+        return mock_session
+
+    async def _init(self) -> None:
         # AsyncMock objects beget other AsyncMock objects, but these methods
-        # are synchronous, so we need initialize them explicitly
+        # are synchronous so we need initialize them explicitly
         self.get = Mock(return_value=AsyncMock())
         self.post = Mock(return_value=AsyncMock())
         # Allow MockSession objects to be used as async context managers
@@ -31,8 +46,7 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
         return mock_object
 
     async def asyncSetUp(self) -> None:
-        self.mock_session = MockSession()
-        await self.mock_session.async_init()
+        self.mock_session = await MockSession.create()
         self.mock_get_session = self._patch(
             "spotify.Spotify._get_session",
             return_value=self.mock_session,
@@ -52,12 +66,173 @@ class TestShutdown(SpotifyTestCase):
 
 
 class TestGetTracks(SpotifyTestCase):
-    async def test_error(self) -> None:
+    async def test_invalid_data(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {"error": "something went wrong"}
+            mock_response.json.return_value = ""
         spotify = Spotify("token")
         with self.assertRaises(FailedToGetTracksError):
             await spotify._get_tracks("playlist_id")
+
+    async def test_empty_data(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetTracksError):
+            await spotify._get_tracks("playlist_id")
+
+    async def test_error(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {"error": "whoops"}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetTracksError):
+            await spotify._get_tracks("playlist_id")
+
+    async def test_empty_playlist(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "items": [],
+                "next": "",
+            }
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks("playlist_id")
+        self.assertEqual(tracks, [])
+
+    async def test_empty_track(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "items": [{"track": {}}],
+                "next": "",
+            }
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks("playlist_id")
+        self.assertEqual(tracks, [])
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_missing_info(self, logger: Mock) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "items": [
+                    {
+                        "track": {
+                            "duration_ms": 123,
+                            "name": "",
+                            "album": {
+                                "name": "",
+                                "external_urls": {},
+                            },
+                            "artists": [],
+                            "external_urls": {},
+                        }
+                    },
+                ],
+                "next": "",
+            }
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks("playlist_id")
+        self.assertEqual(
+            tracks,
+            [
+                Track(
+                    url="",
+                    name="<MISSING>",
+                    album=Album(
+                        url="",
+                        name="<MISSING>",
+                    ),
+                    artists=[],
+                    duration_ms=123,
+                )
+            ],
+        )
+
+    async def test_success(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "items": [
+                    {
+                        "track": {
+                            "duration_ms": 456,
+                            "name": "track_name",
+                            "album": {
+                                "name": "album_name",
+                                "external_urls": {
+                                    "spotify": "album_url",
+                                },
+                            },
+                            "artists": [
+                                {
+                                    "name": "artist_name_1",
+                                    "external_urls": {
+                                        "spotify": "artist_url_1",
+                                    },
+                                },
+                                {
+                                    "name": "artist_name_2",
+                                    "external_urls": {
+                                        "spotify": "artist_url_2",
+                                    },
+                                },
+                            ],
+                            "external_urls": {
+                                "spotify": "track_url",
+                            },
+                        }
+                    },
+                ],
+                "next": "",
+            }
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks("playlist_id")
+        self.assertEqual(
+            tracks,
+            [
+                Track(
+                    url="track_url",
+                    name="track_name",
+                    album=Album(
+                        url="album_url",
+                        name="album_name",
+                    ),
+                    artists=[
+                        Artist(
+                            name="artist_name_1",
+                            url="artist_url_1",
+                        ),
+                        Artist(
+                            name="artist_name_2",
+                            url="artist_url_2",
+                        ),
+                    ],
+                    duration_ms=456,
+                )
+            ],
+        )
+
+    # Make these two functions no-ops for simplicity
+    @patch("spotify.Spotify._get_tracks_href")
+    @patch("spotify.Spotify._make_retryable")
+    async def test_pagination(
+        self, mock_make_retryable: Mock, mock_get_tracks_href: Mock
+    ) -> None:
+        mock_make_retryable.side_effect = lambda x: x
+        mock_get_tracks_href.side_effect = lambda x: x
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.side_effect = [
+                {"items": [], "next": "b"},
+                {"items": [], "next": "c"},
+                {"items": [], "next": ""},
+            ]
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks("a")
+        self.assertEqual(tracks, [])
+        self.mock_session.get.assert_has_calls(
+            [
+                call("a"),
+                call("b"),
+                call("c"),
+            ]
+        )
 
 
 class TestGetAccessToken(SpotifyTestCase):
