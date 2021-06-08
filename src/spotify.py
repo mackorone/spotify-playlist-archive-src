@@ -68,6 +68,10 @@ class FailedToGetTracksError(Exception):
     pass
 
 
+class RetryBudgetExceededError(Exception):
+    pass
+
+
 class Spotify:
 
     BASE_URL = "https://api.spotify.com/v1/playlists/"
@@ -101,7 +105,7 @@ class Spotify:
                         return
                     self._retry_budget_seconds -= backoff_seconds
                     if self._retry_budget_seconds <= 0:
-                        raise Exception("Retry budget exceeded")
+                        raise RetryBudgetExceededError("Retry budget exceeded")
                     else:
                         logger.warning(f"{reason}, will retry after {backoff_seconds}s")
                         await self._sleep(backoff_seconds)

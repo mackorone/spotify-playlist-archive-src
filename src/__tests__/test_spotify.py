@@ -10,6 +10,7 @@ from spotify import (
     Artist,
     FailedToGetAccessTokenError,
     FailedToGetTracksError,
+    RetryBudgetExceededError,
     Spotify,
     Track,
 )
@@ -209,7 +210,7 @@ class TestGetTracks(SpotifyTestCase):
             ],
         )
 
-    # Make these two functions no-ops for simplicity
+    # Make these functions no-ops for simplicity
     @patch("spotify.Spotify._get_tracks_href")
     @patch("spotify.Spotify._make_retryable")
     async def test_pagination(
@@ -233,6 +234,49 @@ class TestGetTracks(SpotifyTestCase):
                 call("c"),
             ]
         )
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_server_unavailable(self, mock_logger: Mock) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.status = 500
+        spotify = Spotify("token")
+        with self.assertRaises(RetryBudgetExceededError):
+            await spotify._get_tracks("playlist_id")
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_transient_server_error(self, mock_logger: Mock) -> None:
+        # Return error first, then success
+        mock_responses = [AsyncMock(), AsyncMock()]
+        async with mock_responses[0] as mock_response:
+            mock_response.status = 500
+        async with mock_responses[1] as mock_response:
+            mock_response.json.return_value = {"items": [], "next": ""}
+        self.mock_session.get.side_effect = mock_responses
+        # Save a reference to the wrapped method
+        mock_session_get = self.mock_session.get
+        spotify = Spotify("token")
+        await spotify._get_tracks("playlist_id")
+        self.assertEqual(mock_session_get.call_count, 2)
+        self.mock_sleep.assert_called_once_with(1)
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_rate_limited(self, mock_logger: Mock) -> None:
+        mock_responses = [AsyncMock(), AsyncMock()]
+        async with mock_responses[0] as mock_response:
+            mock_response.status = 429
+            mock_response.headers = {"Retry-After": 4.2}
+        async with mock_responses[1] as mock_response:
+            mock_response.json.return_value = {"items": [], "next": ""}
+        self.mock_session.get.side_effect = mock_responses
+        # Save a reference to the wrapped method
+        mock_session_get = self.mock_session.get
+        spotify = Spotify("token")
+        await spotify._get_tracks("playlist_id")
+        self.assertEqual(mock_session_get.call_count, 2)
+        self.mock_sleep.assert_called_once_with(5)
 
 
 class TestGetAccessToken(SpotifyTestCase):
