@@ -210,13 +210,8 @@ class TestGetTracks(SpotifyTestCase):
             ],
         )
 
-    # Make these functions no-ops for simplicity
     @patch("spotify.Spotify._get_tracks_href")
-    @patch("spotify.Spotify._make_retryable")
-    async def test_pagination(
-        self, mock_make_retryable: Mock, mock_get_tracks_href: Mock
-    ) -> None:
-        mock_make_retryable.side_effect = lambda x: x
+    async def test_pagination(self, mock_get_tracks_href: Mock) -> None:
         mock_get_tracks_href.side_effect = lambda x: x
         async with self.mock_session.get.return_value as mock_response:
             mock_response.json.side_effect = [
@@ -247,18 +242,15 @@ class TestGetTracks(SpotifyTestCase):
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
     async def test_transient_server_error(self, mock_logger: Mock) -> None:
-        # Return error first, then success
         mock_responses = [AsyncMock(), AsyncMock()]
         async with mock_responses[0] as mock_response:
             mock_response.status = 500
         async with mock_responses[1] as mock_response:
             mock_response.json.return_value = {"items": [], "next": ""}
         self.mock_session.get.side_effect = mock_responses
-        # Save a reference to the wrapped method
-        mock_session_get = self.mock_session.get
         spotify = Spotify("token")
         await spotify._get_tracks("playlist_id")
-        self.assertEqual(mock_session_get.call_count, 2)
+        self.assertEqual(self.mock_session.get.call_count, 2)
         self.mock_sleep.assert_called_once_with(1)
 
     # Patch the logger to suppress log spew
@@ -271,11 +263,9 @@ class TestGetTracks(SpotifyTestCase):
         async with mock_responses[1] as mock_response:
             mock_response.json.return_value = {"items": [], "next": ""}
         self.mock_session.get.side_effect = mock_responses
-        # Save a reference to the wrapped method
-        mock_session_get = self.mock_session.get
         spotify = Spotify("token")
         await spotify._get_tracks("playlist_id")
-        self.assertEqual(mock_session_get.call_count, 2)
+        self.assertEqual(self.mock_session.get.call_count, 2)
         self.mock_sleep.assert_called_once_with(5)
 
 

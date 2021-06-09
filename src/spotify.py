@@ -4,16 +4,7 @@ import asyncio
 import base64
 import logging
 from contextlib import asynccontextmanager
-from typing import (
-    Any,
-    AsyncContextManager,
-    AsyncIterator,
-    Callable,
-    Dict,
-    NamedTuple,
-    Optional,
-    Sequence,
-)
+from typing import AsyncIterator, Dict, NamedTuple, Optional, Sequence
 
 import aiohttp
 
@@ -81,36 +72,30 @@ class Spotify:
         self._session: aiohttp.ClientSession = self._get_session(headers=headers)
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
-        self._session.get = self._make_retryable(self._session.get)  # pyre-fixme[8]
 
-    def _make_retryable(
-        self, func: Callable[[str], aiohttp.client._RequestContextManager]
-    ) -> Callable[[str], AsyncContextManager[aiohttp.client_reqrep.ClientResponse]]:
-        @asynccontextmanager
-        async def wrapper(
-            *args: Any, **kwargs: Any
-        ) -> AsyncIterator[aiohttp.client_reqrep.ClientResponse]:
-            while True:
-                async with func(*args, **kwargs) as response:
-                    if response.status == 429:
-                        # Add an extra second, just to be safe
-                        # https://stackoverflow.com/a/30557896/3176152
-                        backoff_seconds = int(response.headers["Retry-After"]) + 1
-                        reason = "Rate limited"
-                    elif response.status in [500, 502]:
-                        backoff_seconds = 1
-                        reason = "Server error"
-                    else:
-                        yield response
-                        return
-                    self._retry_budget_seconds -= backoff_seconds
-                    if self._retry_budget_seconds <= 0:
-                        raise RetryBudgetExceededError("Retry budget exceeded")
-                    else:
-                        logger.warning(f"{reason}, will retry after {backoff_seconds}s")
-                        await self._sleep(backoff_seconds)
-
-        return wrapper
+    @asynccontextmanager
+    async def _get_with_retry(
+        self, href: str
+    ) -> AsyncIterator[aiohttp.client_reqrep.ClientResponse]:
+        while True:
+            async with self._session.get(href) as response:
+                if response.status == 429:
+                    # Add an extra second, just to be safe
+                    # https://stackoverflow.com/a/30557896/3176152
+                    backoff_seconds = int(response.headers["Retry-After"]) + 1
+                    reason = "Rate limited"
+                elif response.status in [500, 502]:
+                    backoff_seconds = 1
+                    reason = "Server error"
+                else:
+                    yield response
+                    return
+                self._retry_budget_seconds -= backoff_seconds
+                if self._retry_budget_seconds <= 0:
+                    raise RetryBudgetExceededError("Retry budget exceeded")
+                else:
+                    logger.warning(f"{reason}, will retry after {backoff_seconds}s")
+                    await self._sleep(backoff_seconds)
 
     async def shutdown(self) -> None:
         await self._session.close()
@@ -120,7 +105,7 @@ class Spotify:
 
     async def get_playlist(self, playlist_id: str, aliases: Dict[str, str]) -> Playlist:
         playlist_href = self._get_playlist_href(playlist_id)
-        async with self._session.get(playlist_href) as response:
+        async with self._get_with_retry(playlist_href) as response:
             data = await response.json(content_type=None)
 
         error = data.get("error")
@@ -166,7 +151,7 @@ class Spotify:
         tracks_href = self._get_tracks_href(playlist_id)
 
         while tracks_href:
-            async with self._session.get(tracks_href) as response:
+            async with self._get_with_retry(tracks_href) as response:
                 data = await response.json(content_type=None)
 
             if not isinstance(data, dict):
