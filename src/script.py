@@ -10,7 +10,7 @@ import subprocess
 from typing import Dict, List, Optional, Sequence
 
 from external import allow_external_calls
-from spotify import InvalidPlaylistError, Playlist, PrivatePlaylistError, Spotify, Track
+from spotify import Playlist, Spotify, Track
 from url import URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -300,47 +300,36 @@ async def update_files_impl(now: datetime.datetime, spotify: Spotify) -> None:
     readme_lines = []
     for playlist_id in playlist_ids:
         plain_path = "{}/{}".format(plain_dir, playlist_id)
-
-        try:
-            playlist = await spotify.get_playlist(playlist_id, aliases)
-        except PrivatePlaylistError:
-            logger.warning("Removing private playlist: {}".format(playlist_id))
-            os.remove(plain_path)
-        except InvalidPlaylistError:
-            logger.warning("Removing invalid playlist: {}".format(playlist_id))
-            os.remove(plain_path)
-        else:
-            readme_lines.append(
-                "- [{}]({})".format(
-                    playlist.name,
-                    URL.pretty(playlist.name),
-                )
+        playlist = await spotify.get_playlist(playlist_id, aliases)
+        readme_lines.append(
+            "- [{}]({})".format(
+                playlist.name,
+                URL.pretty(playlist.name),
             )
+        )
 
-            pretty_path = "{}/{}.md".format(pretty_dir, playlist.name)
-            cumulative_path = "{}/{}.md".format(cumulative_dir, playlist.name)
+        pretty_path = "{}/{}.md".format(pretty_dir, playlist.name)
+        cumulative_path = "{}/{}.md".format(cumulative_dir, playlist.name)
 
-            for path in [plain_path, pretty_path, cumulative_path]:
-                try:
-                    prev_content = "".join(open(path).readlines())
-                except Exception:
-                    prev_content = ""
+        for path in [plain_path, pretty_path, cumulative_path]:
+            try:
+                prev_content = "".join(open(path).readlines())
+            except Exception:
+                prev_content = ""
 
-                if path == plain_path:
-                    content = Formatter.plain(playlist_id, playlist)
-                elif path == pretty_path:
-                    content = Formatter.pretty(playlist_id, playlist)
-                else:
-                    content = Formatter.cumulative(
-                        now, prev_content, playlist_id, playlist
-                    )
+            if path == plain_path:
+                content = Formatter.plain(playlist_id, playlist)
+            elif path == pretty_path:
+                content = Formatter.pretty(playlist_id, playlist)
+            else:
+                content = Formatter.cumulative(now, prev_content, playlist_id, playlist)
 
-                if content == prev_content:
-                    logger.info("No changes to file: {}".format(path))
-                else:
-                    logger.info("Writing updates to file: {}".format(path))
-                    with open(path, "w") as f:
-                        f.write(content)
+            if content == prev_content:
+                logger.info("No changes to file: {}".format(path))
+            else:
+                logger.info("Writing updates to file: {}".format(path))
+                with open(path, "w") as f:
+                    f.write(content)
 
     # Sanity check: ensure same number of files in playlists/plain and
     # playlists/pretty - if not, some playlists have the same name and

@@ -43,15 +43,7 @@ class FailedToGetAccessTokenError(Exception):
     pass
 
 
-class InvalidAccessTokenError(Exception):
-    pass
-
-
-class InvalidPlaylistError(Exception):
-    pass
-
-
-class PrivatePlaylistError(Exception):
+class FailedToGetPlaylistError(Exception):
     pass
 
 
@@ -108,18 +100,17 @@ class Spotify:
         async with self._get_with_retry(playlist_href) as response:
             data = await response.json(content_type=None)
 
+        if not isinstance(data, dict):
+            raise FailedToGetPlaylistError(f"Invalid response: {data}")
+        if not data:
+            raise FailedToGetPlaylistError(f"Empty response: {data}")
+
         error = data.get("error")
         if error:
-            if error.get("status") == 401:
-                raise InvalidAccessTokenError()
-            elif error.get("status") == 403:
-                raise PrivatePlaylistError()
-            elif error.get("status") == 404:
-                raise InvalidPlaylistError()
-            else:
-                raise Exception("Failed to get playlist: {}".format(error))
-
-        url = self._get_url(data["external_urls"])
+            # status 401 = invalid access token
+            # status 403 = private playlist
+            # status 404 = invalid playlist
+            raise FailedToGetPlaylistError(f"Failed to get playlist: {error}")
 
         # If the playlist has an alias, use it
         if playlist_id in aliases:
@@ -140,9 +131,10 @@ class Spotify:
         name = name.strip(" .")
 
         if not name:
-            raise Exception(f"Empty playlist name: {playlist_id}")
+            raise FailedToGetPlaylistError(f"Empty playlist name: {playlist_id}")
 
         description = data["description"]
+        url = self._get_url(data["external_urls"])
         tracks = await self._get_tracks(playlist_id)
         return Playlist(url=url, name=name, description=description, tracks=tracks)
 
@@ -212,7 +204,7 @@ class Spotify:
 
     @classmethod
     def _get_url(cls, external_urls: Dict[str, str]) -> str:
-        return (external_urls or {}).get("spotify") or ""
+        return external_urls.get("spotify") or ""
 
     @classmethod
     def _get_playlist_href(cls, playlist_id: str) -> str:

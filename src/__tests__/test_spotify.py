@@ -9,7 +9,9 @@ from spotify import (
     Album,
     Artist,
     FailedToGetAccessTokenError,
+    FailedToGetPlaylistError,
     FailedToGetTracksError,
+    Playlist,
     RetryBudgetExceededError,
     Spotify,
     Track,
@@ -64,6 +66,126 @@ class TestShutdown(SpotifyTestCase):
         await spotify.shutdown()
         self.mock_session.close.assert_called_once()
         self.mock_sleep.assert_called_once_with(0)
+
+
+class TestGetPlaylist(SpotifyTestCase):
+    async def test_invalid_data(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = ""
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetPlaylistError):
+            await spotify.get_playlist("playlist_id", aliases={})
+
+    async def test_empty_data(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetPlaylistError):
+            await spotify.get_playlist("playlist_id", aliases={})
+
+    async def test_error(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {"error": "whoops"}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetPlaylistError):
+            await spotify.get_playlist("playlist_id", aliases={})
+
+    async def test_empty_name(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {"name": ""}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetPlaylistError):
+            await spotify.get_playlist("playlist_id", aliases={})
+
+    async def test_empty_alias(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {"name": "foo"}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedToGetPlaylistError):
+            await spotify.get_playlist("playlist_id", aliases={"playlist_id": ""})
+
+    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    async def test_success(self, mock_get_tracks: AsyncMock) -> None:
+        track = Track(
+            url="track_url",
+            name="track_name",
+            album=Album(
+                url="album_url",
+                name="album_name",
+            ),
+            artists=[
+                Artist(
+                    url="artist_url",
+                    name="artist_name",
+                )
+            ],
+            duration_ms=100,
+        )
+        mock_get_tracks.return_value = [track]
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "name": "playlist_name",
+                "description": "playlist_description",
+                "external_urls": {
+                    "spotify": "playlist_url",
+                },
+            }
+        spotify = Spotify("token")
+        playlist = await spotify.get_playlist("playlist_id", aliases={})
+        self.assertEqual(
+            playlist,
+            Playlist(
+                url="playlist_url",
+                name="playlist_name",
+                description="playlist_description",
+                tracks=[track],
+            ),
+        )
+
+    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    async def test_name_sanitization(self, mock_get_tracks: AsyncMock) -> None:
+        mock_get_tracks.return_value = []
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "name": ". a/b\\c:d|e?f. ",
+                "description": "",
+                "external_urls": {},
+            }
+        spotify = Spotify("token")
+        playlist = await spotify.get_playlist("playlist_id", aliases={})
+        self.assertEqual(
+            playlist,
+            Playlist(
+                url="",
+                name="a b c -d-ef",
+                description="",
+                tracks=[],
+            ),
+        )
+
+    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    async def test_alias_sanitization(self, mock_get_tracks: AsyncMock) -> None:
+        mock_get_tracks.return_value = []
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "name": "foo",
+                "description": "",
+                "external_urls": {},
+            }
+        spotify = Spotify("token")
+        playlist = await spotify.get_playlist(
+            "playlist_id",
+            aliases={"playlist_id": ". a/b\\c:d|e?f. "},
+        )
+        self.assertEqual(
+            playlist,
+            Playlist(
+                url="",
+                name="a b c -d-ef",
+                description="",
+                tracks=[],
+            ),
+        )
 
 
 class TestGetTracks(SpotifyTestCase):
