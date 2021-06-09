@@ -10,7 +10,6 @@ import aiohttp
 
 from external import external
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
 
 
