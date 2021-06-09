@@ -108,3 +108,6 @@ venv.bak/
 
 # Pyre type checker
 .pyre/
+
+# Ignore local testing output
+_playlists/

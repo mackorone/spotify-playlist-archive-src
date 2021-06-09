@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import logging
 import os
+import pathlib
 import subprocess
 from typing import Sequence
 
@@ -17,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-async def update_files(now: datetime.datetime) -> None:
+async def update_files(now: datetime.datetime, prod: bool) -> None:
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -27,16 +28,29 @@ async def update_files(now: datetime.datetime) -> None:
     access_token = await Spotify.get_access_token(client_id, client_secret)
     spotify = Spotify(access_token)
     try:
-        await update_files_impl(now, spotify)
+        await update_files_impl(now, prod, spotify)
     finally:
         await spotify.shutdown()
 
 
-async def update_files_impl(now: datetime.datetime, spotify: Spotify) -> None:
-    aliases_dir = "playlists/aliases"
-    plain_dir = "playlists/plain"
-    pretty_dir = "playlists/pretty"
-    cumulative_dir = "playlists/cumulative"
+async def update_files_impl(
+    now: datetime.datetime, prod: bool, spotify: Spotify
+) -> None:
+    # Relative to project root
+    playlists_dir = "playlists" if prod else "_playlists"
+    aliases_dir = f"{playlists_dir}/aliases"
+    plain_dir = f"{playlists_dir}/plain"
+    pretty_dir = f"{playlists_dir}/pretty"
+    cumulative_dir = f"{playlists_dir}/cumulative"
+
+    # Ensure the directories exist
+    for path in [
+        aliases_dir,
+        plain_dir,
+        pretty_dir,
+        cumulative_dir,
+    ]:
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
 
     # Determine which playlists to scrape from the files in playlists/plain.
     # This makes it easy to add new a playlist: just touch an empty file like
@@ -118,13 +132,16 @@ async def update_files_impl(now: datetime.datetime, spotify: Spotify) -> None:
         raise Exception("Missing pretty playlists: {}".format(missing_from_pretty))
 
     # Lastly, update README.md
-    readme = open("README.md").read().splitlines()
-    index = readme.index("## Playlists")
-    lines = (
-        readme[: index + 1] + [""] + sorted(readme_lines, key=lambda line: line.lower())
-    )
-    with open("README.md", "w") as f:
-        f.write("\n".join(lines) + "\n")
+    if prod:
+        readme = open("README.md").read().splitlines()
+        index = readme.index("## Playlists")
+        lines = (
+            readme[: index + 1]
+            + [""]
+            + sorted(readme_lines, key=lambda line: line.lower())
+        )
+        with open("README.md", "w") as f:
+            f.write("\n".join(lines) + "\n")
 
 
 def run(args: Sequence[str]) -> subprocess.CompletedProcess:  # pyre-fixme[24]
@@ -202,15 +219,16 @@ def push_updates(now: datetime.datetime) -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Snapshot Spotify playlists")
     parser.add_argument(
-        "--push",
+        "--prod",
         help="Commit and push updated playlists",
         action="store_true",
     )
     args = parser.parse_args()
     now = datetime.datetime.now()
-    await update_files(now)
 
-    if args.push:
+    prod = bool(args.prod)
+    await update_files(now, prod)
+    if prod:
         push_updates(now)
 
     logger.info("Done")
