@@ -1,8 +1,11 @@
 - Add unit tests
+- Document the local testing workflows
+- Handle playlist renames seamlessly
+    - Use playlist IDs as file names
+        - Fix spotify playlist publisher
+- Use "aliases" as source of truth for playlist IDs
 - Splitting by `" | "` breaks for some tracks
 - Clean up near-duplicates in cumulative playlists
 - Automatically add all "Spotify" user playlists
-- Handle playlist renames seamlessly
 - Only fetch each track once (same track in multiple playlists)
 - Link to published cumulative playlists where possible
-- Document the local testing workflows
