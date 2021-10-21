@@ -75,7 +75,7 @@ class Spotify:
                     # https://stackoverflow.com/a/30557896/3176152
                     backoff_seconds = int(response.headers["Retry-After"]) + 1
                     reason = "Rate limited"
-                elif response.status in [500, 502]:
+                elif response.status in [500, 502, 504]:
                     backoff_seconds = 1
                     reason = "Server error"
                 else:
