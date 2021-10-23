@@ -48,27 +48,24 @@ class FileUpdater:
         ]:
             pathlib.Path(path).mkdir(parents=True, exist_ok=True)
 
-        # Determine which playlists to scrape from the files in playlists/plain.
-        # This makes it easy to add new a playlist: just touch an empty file like
-        # playlists/plain/<playlist_id> and this script will handle the rest.
-        playlist_ids = os.listdir(plain_dir)
+        # Determine which playlists to scrape from the files in
+        # playlists/aliases. This makes it easy to add new a playlist: just
+        # touch an empty file like playlists/aliases/<playlist_id> and this
+        # script will handle the rest.
+        playlist_ids = os.listdir(aliases_dir)
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
-        # same name for every user. To add an alias, simply create a file like
-        # playlists/aliases/<playlist_id> that contains the alternative name.
+        # same name for every user. To add an alias, add a single line
+        # containing the desired name to playlists/aliases/<playlist_id>
         aliases = {}
         for playlist_id in os.listdir(aliases_dir):
             alias_path = "{}/{}".format(aliases_dir, playlist_id)
-            if playlist_id not in playlist_ids:
-                logger.warning("Removing unused alias: {}".format(playlist_id))
-                os.remove(alias_path)
-                continue
             contents = open(alias_path).read().splitlines()
-            if len(contents) != 1:
-                logger.warning("Removing malformed alias: {}".format(playlist_id))
-                os.remove(alias_path)
+            if not contents:
                 continue
+            if len(contents) != 1:
+                raise Exception(f"Malformed alias: {playlist_id}")
             aliases[playlist_id] = contents[0]
 
         readme_lines = []
@@ -106,6 +103,13 @@ class FileUpdater:
                     logger.info("Writing updates to file: {}".format(path))
                     with open(path, "w") as f:
                         f.write(content)
+
+        # Sanity check: ensure playlists/aliases and playlists/plain contain
+        # the same filenames (playlist IDs)
+        playlist_ids_plain = set(os.listdir(plain_dir))
+        playlist_ids_aliases = set(os.listdir(aliases_dir))
+        if playlist_ids_plain != playlist_ids_aliases:
+            raise Exception("Playlist IDs don't match")
 
         # Sanity check: ensure same number of files in playlists/plain and
         # playlists/pretty - if not, some playlists have the same name and
