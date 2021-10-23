@@ -1,5 +1,4 @@
 - Add unit tests
-- Document the local testing workflows
 - Handle playlist renames seamlessly
     - Use playlist IDs as file names
         - Fix spotify playlist publisher

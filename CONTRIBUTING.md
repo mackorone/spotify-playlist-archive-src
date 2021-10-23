@@ -50,3 +50,23 @@ Note that Pyre depends on [`watchman`](https://github.com/facebook/watchman), a
 file watching service, for incremental type checking. It takes a few minutes to
 install, but it's worth the investment - it makes type checking almost
 instantaneous.
+
+### Unit Testing
+
+After making changes, you should update unit tests and run them as follows:
+```
+$ cd src
+$ python -m unittest __tests__/\*.py
+```
+
+### Integration Testing
+
+Copy the `playlists` directory to `_playlists`:
+```
+$ cp -r playlists _playlists
+```
+
+Then run the script:
+```
+$ src/main.py
+```
