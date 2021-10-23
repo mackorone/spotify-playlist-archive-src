@@ -4,8 +4,10 @@ import datetime
 import logging
 import os
 import pathlib
+from typing import Dict
 
 from file_formatter import Formatter
+from playlist_id import PlaylistID
 from spotify import Spotify
 from url import URL
 
@@ -52,14 +54,14 @@ class FileUpdater:
         # playlists/aliases. This makes it easy to add new a playlist: just
         # touch an empty file like playlists/aliases/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids = os.listdir(aliases_dir)
+        playlist_ids = [PlaylistID(x) for x in os.listdir(aliases_dir)]
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
         # same name for every user. To add an alias, add a single line
         # containing the desired name to playlists/aliases/<playlist_id>
-        aliases = {}
-        for playlist_id in os.listdir(aliases_dir):
+        aliases: Dict[PlaylistID, str] = {}
+        for playlist_id in playlist_ids:
             alias_path = "{}/{}".format(aliases_dir, playlist_id)
             contents = open(alias_path).read().splitlines()
             if not contents:

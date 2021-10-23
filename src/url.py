@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from playlist_id import PlaylistID
+
 
 class URL:
 
@@ -10,12 +12,12 @@ class URL:
     )
 
     @classmethod
-    def plain_history(cls, playlist_id: str) -> str:
+    def plain_history(cls, playlist_id: PlaylistID) -> str:
         url = cls.HISTORY_BASE + "/plain/{}".format(playlist_id)
         return cls._sanitize(url)
 
     @classmethod
-    def plain(cls, playlist_id: str) -> str:
+    def plain(cls, playlist_id: PlaylistID) -> str:
         url = cls.BASE + "/plain/{}".format(playlist_id)
         return cls._sanitize(url)
 

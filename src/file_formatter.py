@@ -4,6 +4,7 @@ import datetime
 import re
 from typing import Dict, List, Optional, Sequence
 
+from playlist_id import PlaylistID
 from spotify import Playlist, Track
 from url import URL
 
@@ -22,7 +23,7 @@ class Formatter:
     LINK_REGEX = r"\[(.+?)\]\(.+?\)"
 
     @classmethod
-    def plain(cls, playlist_id: str, playlist: Playlist) -> str:
+    def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
         lines = [cls._plain_line_from_track(track) for track in playlist.tracks]
         # Sort alphabetically to minimize changes when tracks are reordered
         sorted_lines = sorted(lines, key=lambda line: line.lower())
@@ -30,7 +31,7 @@ class Formatter:
         return "\n".join(header + sorted_lines)
 
     @classmethod
-    def pretty(cls, playlist_id: str, playlist: Playlist) -> str:
+    def pretty(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
         columns = [
             cls.TRACK_NO,
             cls.TITLE,
@@ -74,7 +75,7 @@ class Formatter:
         cls,
         now: datetime.datetime,
         prev_content: str,
-        playlist_id: str,
+        playlist_id: PlaylistID,
         playlist: Playlist,
     ) -> str:
         today = now.strftime("%Y-%m-%d")
@@ -132,7 +133,7 @@ class Formatter:
         cls,
         playlist_name: str,
         playlist_url: str,
-        playlist_id: str,
+        playlist_id: PlaylistID,
         playlist_description: str,
         is_cumulative: bool,
     ) -> List[str]:

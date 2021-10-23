@@ -9,6 +9,7 @@ from typing import AsyncIterator, Dict, NamedTuple, Optional, Sequence
 import aiohttp
 
 from external import external
+from playlist_id import PlaylistID
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -94,7 +95,9 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await self._sleep(0)
 
-    async def get_playlist(self, playlist_id: str, aliases: Dict[str, str]) -> Playlist:
+    async def get_playlist(
+        self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
+    ) -> Playlist:
         playlist_href = self._get_playlist_href(playlist_id)
         async with self._get_with_retry(playlist_href) as response:
             data = await response.json(content_type=None)
@@ -137,7 +140,7 @@ class Spotify:
         tracks = await self._get_tracks(playlist_id)
         return Playlist(url=url, name=name, description=description, tracks=tracks)
 
-    async def _get_tracks(self, playlist_id: str) -> Sequence[Track]:
+    async def _get_tracks(self, playlist_id: PlaylistID) -> Sequence[Track]:
         tracks = []
         tracks_href = self._get_tracks_href(playlist_id)
 
@@ -206,13 +209,13 @@ class Spotify:
         return external_urls.get("spotify") or ""
 
     @classmethod
-    def _get_playlist_href(cls, playlist_id: str) -> str:
+    def _get_playlist_href(cls, playlist_id: PlaylistID) -> str:
         rest = "{}?fields=external_urls,name,description"
         template = cls.BASE_URL + rest
         return template.format(playlist_id)
 
     @classmethod
-    def _get_tracks_href(cls, playlist_id: str) -> str:
+    def _get_tracks_href(cls, playlist_id: PlaylistID) -> str:
         rest = (
             "{}/tracks?fields=next,items.track(id,external_urls,"
             "duration_ms,name,album(external_urls,name),artists)"
