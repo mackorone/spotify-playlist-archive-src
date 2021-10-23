@@ -1,8 +1,9 @@
 - Add unit tests
 - Handle playlist renames seamlessly
     - Use playlist IDs as file names
-        - Fix spotify playlist publisher
 - Splitting by `" | "` breaks for some tracks
+    - Use JSON data files to avoid parsing issues
+- Handle #[]() in playlist names (in publisher too)
 - Clean up near-duplicates in cumulative playlists
 - Automatically add all "Spotify" user playlists
 - Only fetch each track once (same track in multiple playlists)
