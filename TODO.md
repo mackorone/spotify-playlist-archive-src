@@ -1,6 +1,5 @@
 - Check for unexpected files
 - Rename "aliases" to "registry"
-- Remove playlist name sanitization logic
 - Add README to playlist directories
 - Add unit tests
 - Run the script from anywhere in repo

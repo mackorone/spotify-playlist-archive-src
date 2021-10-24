@@ -145,51 +145,6 @@ class TestGetPlaylist(SpotifyTestCase):
             ),
         )
 
-    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
-    async def test_name_sanitization(self, mock_get_tracks: AsyncMock) -> None:
-        mock_get_tracks.return_value = []
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {
-                "name": ". a/b\\c:d|e?f. ",
-                "description": "",
-                "external_urls": {},
-            }
-        spotify = Spotify("token")
-        playlist = await spotify.get_playlist(PlaylistID("abc123"), aliases={})
-        self.assertEqual(
-            playlist,
-            Playlist(
-                url="",
-                name="a b c -d-ef",
-                description="",
-                tracks=[],
-            ),
-        )
-
-    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
-    async def test_alias_sanitization(self, mock_get_tracks: AsyncMock) -> None:
-        mock_get_tracks.return_value = []
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {
-                "name": "foo",
-                "description": "",
-                "external_urls": {},
-            }
-        spotify = Spotify("token")
-        playlist = await spotify.get_playlist(
-            PlaylistID("abc123"),
-            aliases={PlaylistID("abc123"): ". a/b\\c:d|e?f. "},
-        )
-        self.assertEqual(
-            playlist,
-            Playlist(
-                url="",
-                name="a b c -d-ef",
-                description="",
-                tracks=[],
-            ),
-        )
-
 
 class TestGetTracks(SpotifyTestCase):
     async def test_invalid_data(self) -> None:

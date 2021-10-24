@@ -120,18 +120,6 @@ class Spotify:
         else:
             name = data["name"]
 
-        # Playlist names can't have "/" or "\" so use " " instead
-        name = name.replace("/", " ")
-        name = name.replace("\\", " ")
-        # Windows filenames can't have ":" so use " -" instead
-        name = name.replace(":", " -")
-        # Windows filenames can't have "|" so use "-" instead
-        name = name.replace("|", "-")
-        # Windows filenames can't have "?" so just remove them
-        name = name.replace("?", "")
-        # Playlist names shouldn't have enclosing spaces or dots
-        name = name.strip(" .")
-
         if not name:
             raise FailedToGetPlaylistError(f"Empty playlist name: {playlist_id}")
 
