@@ -1,6 +1,4 @@
 - Check for unexpected files
-- Rename "aliases" to "registry"
-- Add README to playlist directories
 - Add unit tests
 - Run the script from anywhere in repo
 - Integration test for README.md updates
@@ -8,6 +6,8 @@
 - Splitting by `" | "` breaks for some tracks
     - Use JSON data files to avoid parsing issues
 - Handle #[]() in playlist names (in publisher too)
+    - Escape all Markdown characters (hard to parse)
+- Sort cumulative playlists (date added, album, etc.)
 - Clean up near-duplicates in cumulative playlists
 - Automatically add all "Spotify" user playlists
 - Only fetch each track once (same track in multiple playlists)

@@ -5,7 +5,7 @@ import datetime
 import logging
 import os
 import pathlib
-from typing import Dict
+from typing import Dict, Set
 
 from file_formatter import Formatter
 from playlist_id import PlaylistID
@@ -37,14 +37,14 @@ class FileUpdater:
     ) -> None:
         # Relative to project root
         playlists_dir = "playlists" if prod else "_playlists"
-        aliases_dir = f"{playlists_dir}/aliases"
+        registry_dir = f"{playlists_dir}/registry"
         plain_dir = f"{playlists_dir}/plain"
         pretty_dir = f"{playlists_dir}/pretty"
         cumulative_dir = f"{playlists_dir}/cumulative"
 
         # Ensure the directories exist
         for path in [
-            aliases_dir,
+            registry_dir,
             plain_dir,
             pretty_dir,
             cumulative_dir,
@@ -52,19 +52,19 @@ class FileUpdater:
             pathlib.Path(path).mkdir(parents=True, exist_ok=True)
 
         # Determine which playlists to scrape from the files in
-        # playlists/aliases. This makes it easy to add new a playlist: just
-        # touch an empty file like playlists/aliases/<playlist_id> and this
+        # playlists/registry. This makes it easy to add new a playlist: just
+        # touch an empty file like playlists/registry/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids = {PlaylistID(x) for x in os.listdir(aliases_dir)}
+        playlist_ids = {PlaylistID(x) for x in os.listdir(registry_dir)}
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
         # same name for every user. To add an alias, add a single line
-        # containing the desired name to playlists/aliases/<playlist_id>
+        # containing the desired name to playlists/registry/<playlist_id>
         aliases: Dict[PlaylistID, str] = {}
         for playlist_id in playlist_ids:
-            alias_path = "{}/{}".format(aliases_dir, playlist_id)
-            with open(alias_path, "r") as f:
+            registry_path = "{}/{}".format(registry_dir, playlist_id)
+            with open(registry_path, "r") as f:
                 alias_lines = f.read().splitlines()
             if not alias_lines:
                 continue
@@ -75,14 +75,14 @@ class FileUpdater:
             # but actually contain a single newline. Normalize those files and
             # ignore the empty alias.
             if not alias:
-                logger.info(f"Truncating empty alias: {alias_path}")
-                with open(alias_path, "w"):
+                logger.info(f"Truncating empty alias: {registry_path}")
+                with open(registry_path, "w"):
                     pass
                 continue
             aliases[playlist_id] = alias
 
         readme_lines = []
-        playlist_names_to_ids: Dict[str, PlaylistID] = collections.defaultdict(set)
+        playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
         for playlist_id in playlist_ids:
             plain_path = "{}/{}".format(plain_dir, playlist_id)
             logger.info(f"Fetching playlist: {playlist_id}")
@@ -130,11 +130,11 @@ class FileUpdater:
         if duplicate_names:
             raise Exception(f"Duplicate playlist names: {duplicate_names}")
 
-        # Sanity check: ensure playlists/aliases and playlists/plain contain
+        # Sanity check: ensure playlists/registry and playlists/plain contain
         # the same filenames (playlist IDs)
         playlist_ids_plain = set(os.listdir(plain_dir))
-        playlist_ids_aliases = set(os.listdir(aliases_dir))
-        if playlist_ids_plain != playlist_ids_aliases:
+        playlist_ids_registry = set(os.listdir(registry_dir))
+        if playlist_ids_plain != playlist_ids_registry:
             raise Exception("Playlist IDs don't match")
 
         # Sanity check: ensure same number of files in playlists/plain and
