@@ -20,9 +20,11 @@ class TestPlain(TestCase):
 
 class TestPretty(TestCase):
     def test_success(self) -> None:
-        self.assertEqual(URL.pretty("a b"), "/playlists/pretty/a%20b.md")
+        self.assertEqual(URL.pretty(PlaylistID("foo")), "/playlists/pretty/foo.md")
 
 
 class TestCumulative(TestCase):
     def test_success(self) -> None:
-        self.assertEqual(URL.cumulative("a b"), "/playlists/cumulative/a%20b.md")
+        self.assertEqual(
+            URL.cumulative(PlaylistID("foo")), "/playlists/cumulative/foo.md"
+        )

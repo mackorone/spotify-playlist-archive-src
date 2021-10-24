@@ -73,16 +73,18 @@ class FileUpdater:
         readme_lines = []
         for playlist_id in playlist_ids:
             plain_path = "{}/{}".format(plain_dir, playlist_id)
+            logger.info(f"Fetching playlist: {playlist_id}")
             playlist = await spotify.get_playlist(playlist_id, aliases)
+            logger.info(f"Playlist name: {playlist.name}")
             readme_lines.append(
                 "- [{}]({})".format(
                     playlist.name,
-                    URL.pretty(playlist.name),
+                    URL.pretty(playlist_id),
                 )
             )
 
-            pretty_path = "{}/{}.md".format(pretty_dir, playlist.name)
-            cumulative_path = "{}/{}.md".format(cumulative_dir, playlist.name)
+            pretty_path = "{}/{}.md".format(pretty_dir, playlist_id)
+            cumulative_path = "{}/{}.md".format(cumulative_dir, playlist_id)
 
             for path in [plain_path, pretty_path, cumulative_path]:
                 try:
@@ -119,12 +121,11 @@ class FileUpdater:
         # and the file in playlists/plain was removed and needs to be re-added
         plain_playlists = set()
         for filename in os.listdir(plain_dir):
-            with open(os.path.join(plain_dir, filename)) as f:
-                plain_playlists.add(f.readline().strip())
+            plain_playlists.add(filename)
 
         pretty_playlists = set()
         for filename in os.listdir(pretty_dir):
-            pretty_playlists.add(filename[:-3])  # strip .md suffix
+            pretty_playlists.add(filename[: -len(".md")])
 
         missing_from_plain = pretty_playlists - plain_playlists
         missing_from_pretty = plain_playlists - pretty_playlists

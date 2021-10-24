@@ -13,24 +13,16 @@ class URL:
 
     @classmethod
     def plain_history(cls, playlist_id: PlaylistID) -> str:
-        url = cls.HISTORY_BASE + "/plain/{}".format(playlist_id)
-        return cls._sanitize(url)
+        return cls.HISTORY_BASE + f"/plain/{playlist_id}"
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID) -> str:
-        url = cls.BASE + "/plain/{}".format(playlist_id)
-        return cls._sanitize(url)
+        return cls.BASE + f"/plain/{playlist_id}"
 
     @classmethod
-    def pretty(cls, playlist_name: str) -> str:
-        url = cls.BASE + "/pretty/{}.md".format(playlist_name)
-        return cls._sanitize(url)
+    def pretty(cls, playlist_id: PlaylistID) -> str:
+        return cls.BASE + f"/pretty/{playlist_id}.md"
 
     @classmethod
-    def cumulative(cls, playlist_name: str) -> str:
-        url = cls.BASE + "/cumulative/{}.md".format(playlist_name)
-        return cls._sanitize(url)
-
-    @classmethod
-    def _sanitize(cls, url: str) -> str:
-        return url.replace(" ", "%20")
+    def cumulative(cls, playlist_id: PlaylistID) -> str:
+        return cls.BASE + f"/cumulative/{playlist_id}.md"

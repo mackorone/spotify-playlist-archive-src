@@ -138,11 +138,11 @@ class Formatter:
         is_cumulative: bool,
     ) -> List[str]:
         if is_cumulative:
-            pretty = cls._link("pretty", URL.pretty(playlist_name))
+            pretty = cls._link("pretty", URL.pretty(playlist_id))
             cumulative = "cumulative"
         else:
             pretty = "pretty"
-            cumulative = cls._link("cumulative", URL.cumulative(playlist_name))
+            cumulative = cls._link("cumulative", URL.cumulative(playlist_id))
 
         return [
             "{} - {} - {} ({})".format(
