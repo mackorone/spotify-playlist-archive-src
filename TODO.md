@@ -1,4 +1,3 @@
-- Check for unexpected files
 - Add unit tests
 - Run the script from anywhere in repo
 - Integration test for README.md updates

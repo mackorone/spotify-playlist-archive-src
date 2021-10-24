@@ -130,33 +130,19 @@ class FileUpdater:
         if duplicate_names:
             raise Exception(f"Duplicate playlist names: {duplicate_names}")
 
-        # Sanity check: ensure playlists/registry and playlists/plain contain
-        # the same filenames (playlist IDs)
-        playlist_ids_plain = set(os.listdir(plain_dir))
-        playlist_ids_registry = set(os.listdir(registry_dir))
-        if playlist_ids_plain != playlist_ids_registry:
-            raise Exception("Playlist IDs don't match")
-
-        # Sanity check: ensure same number of files in playlists/plain and
-        # playlists/pretty - if not, some playlists have the same name and
-        # overwrote each other in playlists/pretty OR a playlist ID was changed
-        # and the file in playlists/plain was removed and needs to be re-added
-        plain_playlists = set()
+        # Check for unexpected files in playlist directories
+        unexpected_files: Set[str] = set()
         for filename in os.listdir(plain_dir):
-            plain_playlists.add(filename)
-
-        pretty_playlists = set()
+            if filename not in playlist_ids:
+                unexpected_files.add(os.path.join(plain_dir, filename))
         for filename in os.listdir(pretty_dir):
-            pretty_playlists.add(filename[: -len(".md")])
-
-        missing_from_plain = pretty_playlists - plain_playlists
-        missing_from_pretty = plain_playlists - pretty_playlists
-
-        if missing_from_plain:
-            raise Exception("Missing plain playlists: {}".format(missing_from_plain))
-
-        if missing_from_pretty:
-            raise Exception("Missing pretty playlists: {}".format(missing_from_pretty))
+            if filename[: -len(".md")] not in playlist_ids:
+                unexpected_files.add(os.path.join(pretty_dir, filename))
+        for filename in os.listdir(cumulative_dir):
+            if filename[: -len(".md")] not in playlist_ids:
+                unexpected_files.add(os.path.join(cumulative_dir, filename))
+        if unexpected_files:
+            raise Exception(f"Unexpected files: {unexpected_files}")
 
         # Lastly, update README.md
         if prod:
