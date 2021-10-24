@@ -1,6 +1,3 @@
-- Update the README.md
-- Push everything to the repo
-
 - Integration test for README.md updates
 - Add unit tests
 - Fix cumulative "Added" dates
