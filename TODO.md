@@ -1,8 +1,11 @@
-- Integration test for README.md updates
+- Check for unexpected files
+- Rename "aliases" to "registry"
+- Remove playlist name sanitization logic
+- Add README to playlist directories
 - Add unit tests
+- Run the script from anywhere in repo
+- Integration test for README.md updates
 - Fix cumulative "Added" dates
-- Handle playlist renames seamlessly
-    - Use playlist IDs as file names
 - Splitting by `" | "` breaks for some tracks
     - Use JSON data files to avoid parsing issues
 - Handle #[]() in playlist names (in publisher too)

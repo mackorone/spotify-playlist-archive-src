@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import collections
 import datetime
 import logging
 import os
@@ -54,7 +55,7 @@ class FileUpdater:
         # playlists/aliases. This makes it easy to add new a playlist: just
         # touch an empty file like playlists/aliases/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids = [PlaylistID(x) for x in os.listdir(aliases_dir)]
+        playlist_ids = {PlaylistID(x) for x in os.listdir(aliases_dir)}
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
@@ -71,11 +72,13 @@ class FileUpdater:
             aliases[playlist_id] = contents[0]
 
         readme_lines = []
+        playlist_names_to_ids: Dict[str, PlaylistID] = collections.defaultdict(set)
         for playlist_id in playlist_ids:
             plain_path = "{}/{}".format(plain_dir, playlist_id)
             logger.info(f"Fetching playlist: {playlist_id}")
             playlist = await spotify.get_playlist(playlist_id, aliases)
             logger.info(f"Playlist name: {playlist.name}")
+            playlist_names_to_ids[playlist.name].add(playlist_id)
             readme_lines.append(
                 "- [{}]({})".format(
                     playlist.name,
@@ -107,6 +110,15 @@ class FileUpdater:
                     logger.info("Writing updates to file: {}".format(path))
                     with open(path, "w") as f:
                         f.write(content)
+
+        # Check for duplicate playlist names
+        duplicate_names = {
+            name: playlist_ids
+            for name, playlist_ids in playlist_names_to_ids.items()
+            if len(playlist_ids) > 1
+        }
+        if duplicate_names:
+            raise Exception(f"Duplicate playlist names: {duplicate_names}")
 
         # Sanity check: ensure playlists/aliases and playlists/plain contain
         # the same filenames (playlist IDs)
