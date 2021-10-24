@@ -1,4 +1,3 @@
-- Ensure playlist IDs don't contain spaces (or other bad characters)
 - Migrate all playlist to the new filename
 - Update the README.md
 - Push everything to the repo
