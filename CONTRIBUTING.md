@@ -56,7 +56,7 @@ instantaneous.
 After making changes, you should update unit tests and run them as follows:
 ```
 $ cd src
-$ python -m unittest __tests__/\*.py
+$ python -m unittest tests/\*.py
 ```
 
 ### Integration Testing
