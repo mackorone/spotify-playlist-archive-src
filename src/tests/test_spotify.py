@@ -92,20 +92,22 @@ class TestGetPlaylist(SpotifyTestCase):
             await spotify.get_playlist(PlaylistID("abc123"), aliases={})
 
     async def test_empty_name(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {"name": ""}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetPlaylistError):
-            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+        for alias in ["", " ", "\n"]:
+            async with self.mock_session.get.return_value as mock_response:
+                mock_response.json.return_value = {"name": alias}
+            spotify = Spotify("token")
+            with self.assertRaises(FailedToGetPlaylistError):
+                await spotify.get_playlist(PlaylistID("abc123"), aliases={})
 
     async def test_empty_alias(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {"name": "foo"}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetPlaylistError):
-            await spotify.get_playlist(
-                PlaylistID("abc123"), aliases={PlaylistID("abc123"): ""}
-            )
+        for alias in ["", " ", "\n"]:
+            async with self.mock_session.get.return_value as mock_response:
+                mock_response.json.return_value = {"name": "foo"}
+            spotify = Spotify("token")
+            with self.assertRaises(FailedToGetPlaylistError):
+                await spotify.get_playlist(
+                    PlaylistID("abc123"), aliases={PlaylistID("abc123"): alias}
+                )
 
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
     async def test_success(self, mock_get_tracks: AsyncMock) -> None:

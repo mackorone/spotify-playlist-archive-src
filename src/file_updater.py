@@ -64,12 +64,22 @@ class FileUpdater:
         aliases: Dict[PlaylistID, str] = {}
         for playlist_id in playlist_ids:
             alias_path = "{}/{}".format(aliases_dir, playlist_id)
-            contents = open(alias_path).read().splitlines()
-            if not contents:
+            with open(alias_path, "r") as f:
+                alias_lines = f.read().splitlines()
+            if not alias_lines:
                 continue
-            if len(contents) != 1:
+            if len(alias_lines) != 1:
                 raise Exception(f"Malformed alias: {playlist_id}")
-            aliases[playlist_id] = contents[0]
+            alias = alias_lines[0]
+            # GitHub makes it easy to create single-line files that look empty
+            # but actually contain a single newline. Normalize those files and
+            # ignore the empty alias.
+            if not alias:
+                logger.info(f"Truncating empty alias: {alias_path}")
+                with open(alias_path, "w"):
+                    pass
+                continue
+            aliases[playlist_id] = alias
 
         readme_lines = []
         playlist_names_to_ids: Dict[str, PlaylistID] = collections.defaultdict(set)

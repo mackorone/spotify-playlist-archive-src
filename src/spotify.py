@@ -120,7 +120,8 @@ class Spotify:
         else:
             name = data["name"]
 
-        if not name:
+        # Make sure the name is nonemty and contains readable characters
+        if (not name) or name.isspace():
             raise FailedToGetPlaylistError(f"Empty playlist name: {playlist_id}")
 
         description = data["description"]
