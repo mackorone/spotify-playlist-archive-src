@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import collections
+import dataclasses
 import datetime
+import json
 import logging
 import os
 import pathlib
@@ -84,7 +86,12 @@ class FileUpdater:
         readme_lines = []
         playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
         for playlist_id in playlist_ids:
-            plain_path = "{}/{}".format(plain_dir, playlist_id)
+            plain_path = os.path.join(plain_dir, playlist_id)
+            pretty_md_path = os.path.join(pretty_dir, f"{playlist_id}.md")
+            pretty_json_path = os.path.join(pretty_dir, f"{playlist_id}.json")
+            cumulative_md_path = os.path.join(cumulative_dir, f"{playlist_id}.md")
+
+            # Get the data from Spotify
             logger.info(f"Fetching playlist: {playlist_id}")
             playlist = await spotify.get_playlist(playlist_id, aliases)
             logger.info(f"Playlist name: {playlist.name}")
@@ -96,30 +103,44 @@ class FileUpdater:
                 )
             )
 
-            pretty_path = "{}/{}.md".format(pretty_dir, playlist_id)
-            cumulative_path = "{}/{}.md".format(cumulative_dir, playlist_id)
+            # Update plain playlist
+            prev_content = cls._get_file_content_or_empty_string(plain_path)
+            content = Formatter.plain(playlist_id, playlist)
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=content,
+                path=plain_path,
+            )
 
-            for path in [plain_path, pretty_path, cumulative_path]:
-                try:
-                    prev_content = "".join(open(path).readlines())
-                except Exception:
-                    prev_content = ""
+            # Update pretty markdown
+            prev_content = cls._get_file_content_or_empty_string(pretty_md_path)
+            content = Formatter.pretty(playlist_id, playlist)
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=content,
+                path=pretty_md_path,
+            )
 
-                if path == plain_path:
-                    content = Formatter.plain(playlist_id, playlist)
-                elif path == pretty_path:
-                    content = Formatter.pretty(playlist_id, playlist)
-                else:
-                    content = Formatter.cumulative(
-                        now, prev_content, playlist_id, playlist
-                    )
+            # Update pretty JSON
+            prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=json.dumps(
+                    dataclasses.asdict(playlist),
+                    indent=2,
+                    sort_keys=True,
+                ),
+                path=pretty_json_path,
+            )
 
-                if content == prev_content:
-                    logger.info("No changes to file: {}".format(path))
-                else:
-                    logger.info("Writing updates to file: {}".format(path))
-                    with open(path, "w") as f:
-                        f.write(content)
+            # Update cumulative markdown
+            prev_content = cls._get_file_content_or_empty_string(cumulative_md_path)
+            content = Formatter.cumulative(now, prev_content, playlist_id, playlist)
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=content,
+                path=cumulative_md_path,
+            )
 
         # Check for duplicate playlist names
         duplicate_names = {
@@ -132,15 +153,17 @@ class FileUpdater:
 
         # Check for unexpected files in playlist directories
         unexpected_files: Set[str] = set()
-        for filename in os.listdir(plain_dir):
-            if filename not in playlist_ids:
-                unexpected_files.add(os.path.join(plain_dir, filename))
-        for filename in os.listdir(pretty_dir):
-            if filename[: -len(".md")] not in playlist_ids:
-                unexpected_files.add(os.path.join(pretty_dir, filename))
-        for filename in os.listdir(cumulative_dir):
-            if filename[: -len(".md")] not in playlist_ids:
-                unexpected_files.add(os.path.join(cumulative_dir, filename))
+        for directory, suffixes in [
+            (plain_dir, [""]),
+            (pretty_dir, [".md", ".json"]),
+            (cumulative_dir, [".md"]),
+        ]:
+            for filename in os.listdir(directory):
+                if not any(
+                    cls._remove_suffix(filename, suffix) in playlist_ids
+                    for suffix in suffixes
+                ):
+                    unexpected_files.add(os.path.join(directory, filename))
         if unexpected_files:
             raise Exception(f"Unexpected files: {unexpected_files}")
 
@@ -155,3 +178,28 @@ class FileUpdater:
             )
             with open("README.md", "w") as f:
                 f.write("\n".join(lines) + "\n")
+
+    @classmethod
+    def _remove_suffix(cls, string: str, suffix: str) -> str:
+        if suffix and string.endswith(suffix):
+            return string[: -len(suffix)]
+        return string
+
+    @classmethod
+    def _get_file_content_or_empty_string(cls, path: str) -> str:
+        try:
+            with open(path, "r") as f:
+                return "".join(f.readlines())
+        except FileNotFoundError:
+            return ""
+
+    @classmethod
+    def _write_to_file_if_content_changed(
+        cls, prev_content: str, content: str, path: str
+    ) -> None:
+        if content == prev_content:
+            logger.info(f"No changes to file: {path}")
+            return
+        logger.info(f"Writing updates to file: {path}")
+        with open(path, "w") as f:
+            f.write(content)
