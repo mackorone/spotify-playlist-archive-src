@@ -239,7 +239,8 @@ class Formatter:
         timedelta = str(datetime.timedelta(seconds=seconds))
 
         index = 0
-        while timedelta[index] in [":", "0"]:
+        # Strip leading zeros but always include the minutes digit
+        while index < len(timedelta) - 4 and timedelta[index] in "0:":
             index += 1
 
         return timedelta[index:]
