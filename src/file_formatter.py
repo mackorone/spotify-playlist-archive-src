@@ -5,7 +5,7 @@ import re
 from typing import Dict, List, Optional, Sequence
 
 from playlist_id import PlaylistID
-from spotify import Playlist, Track
+from playlist_types import Playlist, Track
 from url import URL
 
 

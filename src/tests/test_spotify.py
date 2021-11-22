@@ -6,16 +6,13 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from playlist_id import PlaylistID
+from playlist_types import Album, Artist, Playlist, Track
 from spotify import (
-    Album,
-    Artist,
     FailedToGetAccessTokenError,
     FailedToGetPlaylistError,
     FailedToGetTracksError,
-    Playlist,
     RetryBudgetExceededError,
     Spotify,
-    Track,
 )
 
 

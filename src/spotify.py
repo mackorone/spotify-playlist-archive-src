@@ -4,39 +4,15 @@ import asyncio
 import base64
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Dict, NamedTuple, Optional, Sequence
+from typing import AsyncIterator, Dict, Optional, Sequence
 
 import aiohttp
 
 from external import external
 from playlist_id import PlaylistID
+from playlist_types import Album, Artist, Playlist, Track
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-class Artist(NamedTuple):
-    url: str
-    name: str
-
-
-class Album(NamedTuple):
-    url: str
-    name: str
-
-
-class Track(NamedTuple):
-    url: str
-    name: str
-    album: Album
-    artists: Sequence[Artist]
-    duration_ms: int
-
-
-class Playlist(NamedTuple):
-    url: str
-    name: str
-    description: str
-    tracks: Sequence[Track]
 
 
 class FailedToGetAccessTokenError(Exception):
