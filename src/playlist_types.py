@@ -2,7 +2,9 @@
 
 
 import dataclasses
-from typing import Sequence
+import datetime
+import json
+from typing import Optional, Sequence
 
 
 @dataclasses.dataclass(frozen=True)
@@ -24,6 +26,7 @@ class Track:
     album: Album
     artists: Sequence[Artist]
     duration_ms: int
+    added_at: Optional[datetime.datetime]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -32,3 +35,16 @@ class Playlist:
     name: str
     description: str
     tracks: Sequence[Track]
+
+    def to_json(self) -> str:
+        return json.dumps(
+            dataclasses.asdict(self),
+            indent=2,
+            sort_keys=True,
+            default=self.serialize_datetime,
+        )
+
+    @classmethod
+    def serialize_datetime(cls, obj: object) -> str:
+        assert isinstance(obj, datetime.datetime)
+        return str(obj)

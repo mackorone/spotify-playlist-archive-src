@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
@@ -122,6 +123,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 )
             ],
             duration_ms=100,
+            added_at=datetime.datetime(2021, 12, 25),
         )
         mock_get_tracks.return_value = [track]
         async with self.mock_session.get.return_value as mock_response:
@@ -203,7 +205,8 @@ class TestGetTracks(SpotifyTestCase):
                             },
                             "artists": [],
                             "external_urls": {},
-                        }
+                        },
+                        "added_at": "1970-01-01T00:00:00Z",
                     },
                 ],
                 "next": "",
@@ -215,13 +218,14 @@ class TestGetTracks(SpotifyTestCase):
             [
                 Track(
                     url="",
-                    name="<MISSING>",
+                    name="",
                     album=Album(
                         url="",
-                        name="<MISSING>",
+                        name="",
                     ),
                     artists=[],
                     duration_ms=123,
+                    added_at=None,
                 )
             ],
         )
@@ -257,7 +261,8 @@ class TestGetTracks(SpotifyTestCase):
                             "external_urls": {
                                 "spotify": "track_url",
                             },
-                        }
+                        },
+                        "added_at": "2021-12-25T00:00:00Z",
                     },
                 ],
                 "next": "",
@@ -285,6 +290,7 @@ class TestGetTracks(SpotifyTestCase):
                         ),
                     ],
                     duration_ms=456,
+                    added_at=datetime.datetime(2021, 12, 25),
                 )
             ],
         )

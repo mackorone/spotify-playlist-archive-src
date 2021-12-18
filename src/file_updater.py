@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import collections
-import dataclasses
 import datetime
-import json
 import logging
 import os
 import pathlib
@@ -125,11 +123,7 @@ class FileUpdater:
             prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
-                content=json.dumps(
-                    dataclasses.asdict(playlist),
-                    indent=2,
-                    sort_keys=True,
-                ),
+                content=playlist.to_json(),
                 path=pretty_json_path,
             )
 

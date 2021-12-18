@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import datetime
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Optional, Sequence
@@ -135,10 +136,8 @@ class Spotify:
 
                 if not name:
                     logger.warning("Empty track name: {}".format(url))
-                    name = "<MISSING>"
                 if not album:
                     logger.warning("Empty track album: {}".format(url))
-                    album = "<MISSING>"
 
                 artists = []
                 for artist in track["artists"]:
@@ -152,6 +151,14 @@ class Spotify:
                 if not artists:
                     logger.warning("Empty track artists: {}".format(url))
 
+                added_at_string = item["added_at"]
+                if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
+                    added_at = datetime.datetime.strptime(
+                        added_at_string, "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                else:
+                    added_at = None
+
                 tracks.append(
                     Track(
                         url=url,
@@ -162,6 +169,7 @@ class Spotify:
                         ),
                         artists=artists,
                         duration_ms=duration_ms,
+                        added_at=added_at,
                     )
                 )
 
@@ -182,8 +190,8 @@ class Spotify:
     @classmethod
     def _get_tracks_href(cls, playlist_id: PlaylistID) -> str:
         rest = (
-            "{}/tracks?fields=next,items.track(id,external_urls,"
-            "duration_ms,name,album(external_urls,name),artists)"
+            "{}/tracks?fields=items(added_at,track(id,external_urls,"
+            "duration_ms,name,album(external_urls,name),artists)),next"
         )
         template = cls.BASE_URL + rest
         return template.format(playlist_id)
