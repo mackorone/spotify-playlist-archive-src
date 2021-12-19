@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import datetime
-import re
-from typing import List, Sequence
+from typing import List, NewType
 
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist, Track
 from url import URL
+
+EscapedText = NewType("EscapedText", str)
 
 
 class Formatter:
@@ -20,7 +21,6 @@ class Formatter:
     REMOVED = "Removed"
 
     ARTIST_SEPARATOR = ", "
-    LINK_REGEX = r"\[(.+?)\]\(.+?\)"
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
@@ -59,11 +59,14 @@ class Formatter:
             lines.append(
                 line_template.format(
                     i + 1,
-                    cls._link(track.name, track.url),
+                    cls._link(cls._escape_markdown(track.name), track.url),
                     cls.ARTIST_SEPARATOR.join(
-                        [cls._link(artist.name, artist.url) for artist in track.artists]
+                        [
+                            cls._link(cls._escape_markdown(artist.name), artist.url)
+                            for artist in track.artists
+                        ]
                     ),
-                    cls._link(track.album.name, track.album.url),
+                    cls._link(cls._escape_markdown(track.album.name), track.album.url),
                     cls._format_duration(track.duration_ms),
                 )
             )
@@ -107,13 +110,16 @@ class Formatter:
             lines.append(
                 line_template.format(
                     # Title
-                    cls._link(track.name, track.url),
+                    cls._link(cls._escape_markdown(track.name), track.url),
                     # Artists
                     cls.ARTIST_SEPARATOR.join(
-                        [cls._link(artist.name, artist.url) for artist in track.artists]
+                        [
+                            cls._link(cls._escape_markdown(artist.name), artist.url)
+                            for artist in track.artists
+                        ]
                     ),
                     # Album
-                    cls._link(track.album.name, track.album.url),
+                    cls._link(cls._escape_markdown(track.album.name), track.album.url),
                     # Length
                     cls._format_duration(track.duration_ms),
                     # Added
@@ -135,54 +141,44 @@ class Formatter:
         is_cumulative: bool,
     ) -> List[str]:
         if is_cumulative:
-            pretty = cls._link("pretty", URL.pretty(playlist_id))
+            pretty = cls._link(EscapedText("pretty"), URL.pretty(playlist_id))
             cumulative = "cumulative"
         else:
             pretty = "pretty"
-            cumulative = cls._link("cumulative", URL.cumulative(playlist_id))
+            cumulative = cls._link(
+                EscapedText("cumulative"), URL.cumulative(playlist_id)
+            )
 
         return [
-            "{} - {} - {} ({})".format(
+            "{} - {} - {} - {}".format(
                 pretty,
                 cumulative,
-                cls._link("plain", URL.plain(playlist_id)),
-                cls._link("githistory", URL.plain_history(playlist_id)),
+                cls._link(EscapedText("plain"), URL.plain(playlist_id)),
+                cls._link(EscapedText("githistory"), URL.plain_history(playlist_id)),
             ),
             "",
-            "### {}".format(cls._link(playlist_name, playlist_url)),
+            "### {}".format(
+                cls._link(cls._escape_markdown(playlist_name), playlist_url)
+            ),
             "",
-            "> {}".format(playlist_description),
+            # Some descriptions end with newlines, strip to clean them up
+            "> {}".format(cls._escape_markdown(playlist_description.strip())),
             "",
         ]
 
     @classmethod
     def _plain_line_from_track(cls, track: Track) -> str:
-        return cls._plain_line_from_names(
-            track_name=track.name,
-            artist_names=[artist.name for artist in track.artists],
-            album_name=track.album.name,
-        )
-
-    @classmethod
-    def _plain_line_from_names(
-        cls, track_name: str, artist_names: Sequence[str], album_name: str
-    ) -> str:
         return "{} -- {} -- {}".format(
-            track_name,
-            cls.ARTIST_SEPARATOR.join(artist_names),
-            album_name,
+            track.name,
+            cls.ARTIST_SEPARATOR.join([artist.name for artist in track.artists]),
+            track.album.name,
         )
 
     @classmethod
-    def _link(cls, text: str, url: str) -> str:
+    def _link(cls, text: EscapedText, url: str) -> str:
         if not url:
             return text
         return "[{}]({})".format(text, url)
-
-    @classmethod
-    def _unlink(cls, link: str) -> str:
-        match = re.match(cls.LINK_REGEX, link)
-        return match and match.group(1) or ""
 
     @classmethod
     def _format_duration(cls, duration_ms: int) -> str:
@@ -195,3 +191,25 @@ class Formatter:
             index += 1
 
         return timedelta[index:]
+
+    @classmethod
+    def _escape_markdown(cls, text: str) -> EscapedText:
+        assert ("\n" not in text), text
+        for pattern in [
+            "\\",  # Existing backslashes
+            ". ",  # Numbered lists
+            "#",  # Headers
+            "(",  # Links
+            ")",  # Links
+            "[",  # Links
+            "]",  # Links
+            "-",  # Bulleted lists
+            "*",  # Bulleted lists and emphasis
+            "_",  # Emphasis
+            "`",  # Code
+            "|",  # Tables
+            "~",  # Strikethrough
+        ]:
+            text = text.replace(pattern, f"\\{pattern}")
+
+        return EscapedText(text)

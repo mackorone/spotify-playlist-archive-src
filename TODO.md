@@ -7,7 +7,6 @@
         - Album can (and often does) differ:
             - https://open.spotify.com/track/2nG54Y4a3sH9YpfxMolOyi
             - https://open.spotify.com/track/2z0IupRlVRlDN5r2IVqHyN
-    - Minimum width for cumulative "Added" and "Removed" columns
     - Update date for all tracks, not just current tracks
         - How to handle tracks that are removed from Spotify
     - Sort cumulative playlists (date added, album, etc.)
@@ -23,8 +22,6 @@
           from the playlist, and is empty/null if the track is still present
 
 - Correctness
-    - Update spotify-playlist-publisher to consume cumulative JSON files
-    - Escape markdown characters like #[]()\* in .md files
     - Save playlist IDs and track IDs to pretty playlists
     - Save snapshot_id to pretty playlists
 
