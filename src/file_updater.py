@@ -9,6 +9,7 @@ from typing import Dict, Set
 
 from file_formatter import Formatter
 from playlist_id import PlaylistID
+from playlist_types import CumulativePlaylist
 from spotify import Spotify
 from url import URL
 
@@ -88,6 +89,7 @@ class FileUpdater:
             pretty_md_path = os.path.join(pretty_dir, f"{playlist_id}.md")
             pretty_json_path = os.path.join(pretty_dir, f"{playlist_id}.json")
             cumulative_md_path = os.path.join(cumulative_dir, f"{playlist_id}.md")
+            cumulative_json_path = os.path.join(cumulative_dir, f"{playlist_id}.json")
 
             # Get the data from Spotify
             logger.info(f"Fetching playlist: {playlist_id}")
@@ -110,6 +112,14 @@ class FileUpdater:
                 path=plain_path,
             )
 
+            # Update pretty JSON
+            prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=playlist.to_json(),
+                path=pretty_json_path,
+            )
+
             # Update pretty markdown
             prev_content = cls._get_file_content_or_empty_string(pretty_md_path)
             content = Formatter.pretty(playlist_id, playlist)
@@ -119,17 +129,29 @@ class FileUpdater:
                 path=pretty_md_path,
             )
 
-            # Update pretty JSON
-            prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
+            # Update cumulative JSON
+            today = now.date()
+            prev_content = cls._get_file_content_or_empty_string(cumulative_json_path)
+            if prev_content:
+                prev_struct = CumulativePlaylist.from_json(prev_content)
+            else:
+                prev_struct = CumulativePlaylist(
+                    url="",
+                    name="",
+                    description="",
+                    tracks=[],
+                    date_registered=today,
+                )
+            new_struct = prev_struct.update(today, playlist)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
-                content=playlist.to_json(),
-                path=pretty_json_path,
+                content=new_struct.to_json(),
+                path=cumulative_json_path,
             )
 
             # Update cumulative markdown
             prev_content = cls._get_file_content_or_empty_string(cumulative_md_path)
-            content = Formatter.cumulative(now, prev_content, playlist_id, playlist)
+            content = Formatter.cumulative(playlist_id, new_struct)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
                 content=content,
@@ -150,7 +172,7 @@ class FileUpdater:
         for directory, suffixes in [
             (plain_dir, [""]),
             (pretty_dir, [".md", ".json"]),
-            (cumulative_dir, [".md"]),
+            (cumulative_dir, [".md", ".json"]),
         ]:
             for filename in os.listdir(directory):
                 if not any(

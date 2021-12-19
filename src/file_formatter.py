@@ -2,10 +2,10 @@
 
 import datetime
 import re
-from typing import Dict, List, Optional, Sequence
+from typing import List, Sequence
 
 from playlist_id import PlaylistID
-from playlist_types import Playlist, Track
+from playlist_types import CumulativePlaylist, Playlist, Track
 from url import URL
 
 
@@ -73,12 +73,9 @@ class Formatter:
     @classmethod
     def cumulative(
         cls,
-        now: datetime.datetime,
-        prev_content: str,
         playlist_id: PlaylistID,
-        playlist: Playlist,
+        playlist: CumulativePlaylist,
     ) -> str:
-        today = now.strftime("%Y-%m-%d")
         columns = [
             cls.TITLE,
             cls.ARTISTS,
@@ -91,42 +88,42 @@ class Formatter:
         vertical_separators = ["|"] * (len(columns) + 1)
         line_template = " {} ".join(vertical_separators)
         divider_line = "---".join(vertical_separators)
-        header = cls._markdown_header_lines(
+        lines = cls._markdown_header_lines(
             playlist_name=playlist.name,
             playlist_url=playlist.url,
             playlist_id=playlist_id,
             playlist_description=playlist.description,
             is_cumulative=True,
         )
-        header += [
+        lines += [
             line_template.format(*columns),
             divider_line,
         ]
 
-        # Retrieve existing rows, then add new rows
-        rows = cls._rows_from_prev_content(today, prev_content, divider_line)
-        for track in playlist.tracks:
-            # Get the row for the given track
-            key = cls._plain_line_from_track(track).lower()
-            row = rows.setdefault(key, {column: None for column in columns})
-            # Update row values
-            row[cls.TITLE] = cls._link(track.name, track.url)
-            row[cls.ARTISTS] = cls.ARTIST_SEPARATOR.join(
-                [cls._link(artist.name, artist.url) for artist in track.artists]
+        for i, track in enumerate(playlist.tracks):
+            date_added = str(track.date_added)
+            if track.date_added_asterisk:
+                date_added += "*"
+            lines.append(
+                line_template.format(
+                    # Title
+                    cls._link(track.name, track.url),
+                    # Artists
+                    cls.ARTIST_SEPARATOR.join(
+                        [cls._link(artist.name, artist.url) for artist in track.artists]
+                    ),
+                    # Album
+                    cls._link(track.album.name, track.album.url),
+                    # Length
+                    cls._format_duration(track.duration_ms),
+                    # Added
+                    date_added,
+                    # Removed
+                    track.date_removed or "",
+                )
             )
-            row[cls.ALBUM] = cls._link(track.album.name, track.album.url)
-            row[cls.LENGTH] = cls._format_duration(track.duration_ms)
 
-            if not row[cls.ADDED]:
-                row[cls.ADDED] = today
-
-            row[cls.REMOVED] = ""
-
-        lines = []
-        for key, row in sorted(rows.items()):
-            lines.append(line_template.format(*[row[column] for column in columns]))
-
-        return "\n".join(header + lines)
+        return "\n".join(lines)
 
     @classmethod
     def _markdown_header_lines(
@@ -157,52 +154,6 @@ class Formatter:
             "> {}".format(playlist_description),
             "",
         ]
-
-    @classmethod
-    def _rows_from_prev_content(
-        cls, today: str, prev_content: str, divider_line: str
-    ) -> Dict[str, Dict[str, Optional[str]]]:
-        rows = {}
-        if not prev_content:
-            return rows
-
-        prev_lines = prev_content.splitlines()
-        try:
-            index = prev_lines.index(divider_line)
-        except ValueError:
-            return rows
-
-        for i in range(index + 1, len(prev_lines)):
-            prev_line = prev_lines[i]
-
-            try:
-                title, artists, album, length, added, removed = (
-                    # Slice [2:-2] to trim off "| " and " |"
-                    prev_line[2:-2].split(" | ")
-                )
-            except Exception:
-                continue
-
-            key = cls._plain_line_from_names(
-                track_name=cls._unlink(title),
-                artist_names=[artist for artist in re.findall(cls.LINK_REGEX, artists)],
-                album_name=cls._unlink(album),
-            ).lower()
-
-            row = {
-                cls.TITLE: title,
-                cls.ARTISTS: artists,
-                cls.ALBUM: album,
-                cls.LENGTH: length,
-                cls.ADDED: added,
-                cls.REMOVED: removed,
-            }
-            rows[key] = row
-
-            if not row[cls.REMOVED]:
-                row[cls.REMOVED] = today
-
-        return rows
 
     @classmethod
     def _plain_line_from_track(cls, track: Track) -> str:
