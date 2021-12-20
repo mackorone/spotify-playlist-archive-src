@@ -71,12 +71,14 @@ class TestPlaylistToJSON(TestCase):
                         added_at=None,
                     ),
                 ],
+                snapshot_id="snapshot_id",
             ).to_json(),
             textwrap.dedent(
                 """\
                 {
                   "description": "description",
                   "name": "playlist_name",
+                  "snapshot_id": "snapshot_id",
                   "tracks": [
                     {
                       "added_at": "2021-12-25 23:59:59",
@@ -179,6 +181,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             name="new_playlist_name",
                             description="new_description",
                             tracks=[],
+                            snapshot_id="new_snapshot_id",
                         ),
                     ),
                     CumulativePlaylist(
@@ -249,6 +252,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                                 added_at=added_at,
                             ),
                         ],
+                        snapshot_id="new_snapshot_id",
                     ),
                 ),
                 CumulativePlaylist(
@@ -368,6 +372,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                                 ),
                             ),
                         ],
+                        snapshot_id="new_snapshot_id",
                     ),
                 ),
                 CumulativePlaylist(

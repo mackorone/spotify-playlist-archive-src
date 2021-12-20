@@ -104,7 +104,14 @@ class Spotify:
         description = data["description"]
         url = self._get_url(data["external_urls"])
         tracks = await self._get_tracks(playlist_id)
-        return Playlist(url=url, name=name, description=description, tracks=tracks)
+        snapshot_id = data["snapshot_id"]
+        return Playlist(
+            url=url,
+            name=name,
+            description=description,
+            tracks=tracks,
+            snapshot_id=snapshot_id,
+        )
 
     async def _get_tracks(self, playlist_id: PlaylistID) -> Sequence[Track]:
         tracks = []
@@ -183,7 +190,7 @@ class Spotify:
 
     @classmethod
     def _get_playlist_href(cls, playlist_id: PlaylistID) -> str:
-        rest = "{}?fields=external_urls,name,description"
+        rest = "{}?fields=external_urls,name,description,snapshot_id"
         template = cls.BASE_URL + rest
         return template.format(playlist_id)
 

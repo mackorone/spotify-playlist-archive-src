@@ -71,6 +71,8 @@ class Formatter:
                 )
             )
 
+        lines += ["", f"Snapshot ID: `{playlist.snapshot_id}`"]
+
         return "\n".join(lines)
 
     @classmethod

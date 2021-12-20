@@ -21,10 +21,6 @@
         - "Removed" represents the most recent date that the track was removed
           from the playlist, and is empty/null if the track is still present
 
-- Correctness
-    - Save playlist IDs and track IDs to pretty playlists
-    - Save snapshot_id to pretty playlists
-
 - Features
     - Automatically add all "Spotify" user playlists
     - Look into Flat Data: https://next.github.com/projects/flat-data

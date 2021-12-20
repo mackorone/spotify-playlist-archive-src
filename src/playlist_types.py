@@ -41,6 +41,7 @@ class Playlist:
     name: str
     description: str
     tracks: Sequence[Track]
+    snapshot_id: str
 
     def to_json(self) -> str:
         return json.dumps(

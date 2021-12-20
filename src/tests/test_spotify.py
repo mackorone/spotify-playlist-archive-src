@@ -133,6 +133,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 "external_urls": {
                     "spotify": "playlist_url",
                 },
+                "snapshot_id": "playlist_snapshot_id",
             }
         spotify = Spotify("token")
         playlist = await spotify.get_playlist(PlaylistID("abc123"), aliases={})
@@ -143,6 +144,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 name="playlist_name",
                 description="playlist_description",
                 tracks=[track],
+                snapshot_id="playlist_snapshot_id",
             ),
         )
 
