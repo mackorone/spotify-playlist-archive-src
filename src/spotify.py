@@ -128,28 +128,28 @@ class Spotify:
                 if not track:
                     continue
 
-                url = self._get_url(track["external_urls"])
-                duration_ms = track["duration_ms"]
+                track_url = self._get_url(track["external_urls"])
+                track_name = track["name"]
+                if not track_name:
+                    logger.warning(f"Empty track name: {track_url}")
 
-                name = track["name"]
-                album = track["album"]["name"]
-
-                if not name:
-                    logger.warning("Empty track name: {}".format(url))
-                if not album:
-                    logger.warning("Empty track album: {}".format(url))
+                album_url = self._get_url(track["album"]["external_urls"])
+                album_name = track["album"]["name"]
+                if not album_name:
+                    logger.warning(f"Empty album name: {album_url}")
 
                 artists = []
                 for artist in track["artists"]:
-                    artists.append(
-                        Artist(
-                            url=self._get_url(artist["external_urls"]),
-                            name=artist["name"],
-                        )
-                    )
+                    artist_url = self._get_url(artist["external_urls"])
+                    artist_name = artist["name"]
+                    if not artist_name:
+                        logger.warning(f"Empty artist name: {artist_url}")
+                    artists.append(Artist(url=artist_url, name=artist_name))
 
                 if not artists:
-                    logger.warning("Empty track artists: {}".format(url))
+                    logger.warning("Empty track artists: {}".format(track_url))
+
+                duration_ms = track["duration_ms"]
 
                 added_at_string = item["added_at"]
                 if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
@@ -161,11 +161,11 @@ class Spotify:
 
                 tracks.append(
                     Track(
-                        url=url,
-                        name=name,
+                        url=track_url,
+                        name=track_name,
                         album=Album(
-                            url=self._get_url(track["album"]["external_urls"]),
-                            name=album,
+                            url=album_url,
+                            name=album_name,
                         ),
                         artists=artists,
                         duration_ms=duration_ms,
