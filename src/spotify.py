@@ -128,7 +128,7 @@ class Spotify:
 
             error = data.get("error")
             if error:
-                raise FailedToGetTracksError("Failed to get tracks: {}".format(error))
+                raise FailedToGetTracksError(f"Failed to get tracks: {error}")
 
             for item in data["items"]:
                 track = item["track"]
@@ -154,7 +154,7 @@ class Spotify:
                     artists.append(Artist(url=artist_url, name=artist_name))
 
                 if not artists:
-                    logger.warning("Empty track artists: {}".format(track_url))
+                    logger.warning(f"Empty track artists: {track_url}")
 
                 duration_ms = track["duration_ms"]
 
@@ -205,13 +205,13 @@ class Spotify:
 
     @classmethod
     async def get_access_token(cls, client_id: str, client_secret: str) -> str:
-        joined = "{}:{}".format(client_id, client_secret)
+        joined = f"{client_id}:{client_secret}"
         encoded = base64.b64encode(joined.encode()).decode()
         async with cls._get_session() as session:
             async with session.post(
                 url="https://accounts.spotify.com/api/token",
                 data={"grant_type": "client_credentials"},
-                headers={"Authorization": "Basic {}".format(encoded)},
+                headers={"Authorization": f"Basic {encoded}"},
             ) as response:
                 try:
                     data = await response.json()
@@ -220,21 +220,15 @@ class Spotify:
 
         error = data.get("error")
         if error:
-            raise FailedToGetAccessTokenError(
-                "Failed to get access token: {}".format(error)
-            )
+            raise FailedToGetAccessTokenError(f"Failed to get access token: {error}")
 
         access_token = data.get("access_token")
         if not access_token:
-            raise FailedToGetAccessTokenError(
-                "Invalid access token: {}".format(access_token)
-            )
+            raise FailedToGetAccessTokenError(f"Invalid access token: {access_token}")
 
         token_type = data.get("token_type")
         if token_type != "Bearer":
-            raise FailedToGetAccessTokenError(
-                "Invalid token type: {}".format(token_type)
-            )
+            raise FailedToGetAccessTokenError(f"Invalid token type: {token_type}")
 
         return access_token
 

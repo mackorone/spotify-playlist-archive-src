@@ -27,7 +27,6 @@
 
 - Codebase
     - Add more unit tests
-    - Use f-strings everywhere
     - Run the script from anywhere in repo
     - Integration test for README.md updates
     - Replace shell commands with Python lib

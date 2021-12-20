@@ -40,7 +40,7 @@ class Committer:
 
         run_number = os.getenv("GITHUB_RUN_NUMBER")
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        message = "[skip ci] Run: {} ({})".format(run_number, now_str)
+        message = f"[skip ci] Run: {run_number} ({now_str})"
         commit = cls._run(["git", "commit", "-m", message])
         if commit.returncode != 0:
             raise Exception("Failed to commit changes")
@@ -59,8 +59,8 @@ class Committer:
         # It's ok to print the token, GitHub Actions will hide it
         token = os.getenv("BOT_GITHUB_ACCESS_TOKEN")
         url = (
-            "https://mackorone-bot:{}@github.com/mackorone/"
-            "spotify-playlist-archive.git".format(token)
+            f"https://mackorone-bot:{token}@github.com/mackorone/"
+            "spotify-playlist-archive.git"
         )
         remote_add = cls._run(["git", "remote", "add", "origin", url])
         if remote_add.returncode != 0:
@@ -73,11 +73,11 @@ class Committer:
 
     @classmethod
     def _run(cls, args: Sequence[str]) -> subprocess.CompletedProcess:  # pyre-fixme[24]
-        logger.info("- Running: {}".format(args))
+        logger.info(f"- Running: {args}")
         result = subprocess.run(
             args=args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        logger.info("- Exited with: {}".format(result.returncode))
+        logger.info(f"- Exited with: {result.returncode}")
         return result

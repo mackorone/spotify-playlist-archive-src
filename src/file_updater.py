@@ -64,7 +64,7 @@ class FileUpdater:
         # containing the desired name to playlists/registry/<playlist_id>
         aliases: Dict[PlaylistID, str] = {}
         for playlist_id in playlist_ids:
-            registry_path = "{}/{}".format(registry_dir, playlist_id)
+            registry_path = os.path.join(registry_dir, playlist_id)
             with open(registry_path, "r") as f:
                 alias_lines = f.read().splitlines()
             if not alias_lines:
@@ -96,12 +96,7 @@ class FileUpdater:
             playlist = await spotify.get_playlist(playlist_id, aliases)
             logger.info(f"Playlist name: {playlist.name}")
             playlist_names_to_ids[playlist.name].add(playlist_id)
-            readme_lines.append(
-                "- [{}]({})".format(
-                    playlist.name,
-                    URL.pretty(playlist_id),
-                )
-            )
+            readme_lines.append(f"- [{playlist.name}]({URL.pretty(playlist_id)})")
 
             # Update plain playlist
             prev_content = cls._get_file_content_or_empty_string(plain_path)
