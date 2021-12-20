@@ -194,7 +194,7 @@ class Formatter:
 
     @classmethod
     def _escape_markdown(cls, text: str) -> EscapedText:
-        assert ("\n" not in text), text
+        assert "\n" not in text, text
         for pattern in [
             "\\",  # Existing backslashes
             ". ",  # Numbered lists

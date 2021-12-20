@@ -214,50 +214,25 @@ class TestCumulativePlaylistUpdate(TestCase):
         time_added = datetime.datetime(2000, 1, 2)
         date_added = time_added.date()
         today = datetime.date(2000, 1, 3)
-        for date_added_asterisk in [False, True]:
-            for added_at, updated_date_added in [
-                (time_added, date_added),
-                (None, today),
-            ]:
-                self.assertEqual(
-                    CumulativePlaylist(
-                        url="old_playlist_url",
-                        name="old_playlist_name",
-                        description="old_description",
-                        tracks=[],
-                        date_registered=date_registered,
-                    ).update(
-                        today=today,
-                        playlist=Playlist(
-                            url="new_playlist_url",
-                            name="new_playlist_name",
-                            description="new_description",
-                            tracks=[
-                                Track(
-                                    url="https://open.spotify.com/track/abc123",
-                                    name="new_track_name",
-                                    album=Album(
-                                        url="new_album_url",
-                                        name="new_album_name",
-                                    ),
-                                    artists=[
-                                        Artist(
-                                            url="new_artist_url",
-                                            name="new_artist_name",
-                                        )
-                                    ],
-                                    duration_ms=1234,
-                                    added_at=added_at,
-                                ),
-                            ],
-                        ),
-                    ),
-                    CumulativePlaylist(
+        for added_at, updated_date_added in [
+            (time_added, date_added),
+            (None, today),
+        ]:
+            self.assertEqual(
+                CumulativePlaylist(
+                    url="old_playlist_url",
+                    name="old_playlist_name",
+                    description="old_description",
+                    tracks=[],
+                    date_registered=date_registered,
+                ).update(
+                    today=today,
+                    playlist=Playlist(
                         url="new_playlist_url",
                         name="new_playlist_name",
                         description="new_description",
                         tracks=[
-                            CumulativeTrack(
+                            Track(
                                 url="https://open.spotify.com/track/abc123",
                                 name="new_track_name",
                                 album=Album(
@@ -271,14 +246,38 @@ class TestCumulativePlaylistUpdate(TestCase):
                                     )
                                 ],
                                 duration_ms=1234,
-                                date_added=updated_date_added,
-                                date_added_asterisk=False,
-                                date_removed=None,
+                                added_at=added_at,
                             ),
                         ],
-                        date_registered=date_registered,
                     ),
-                )
+                ),
+                CumulativePlaylist(
+                    url="new_playlist_url",
+                    name="new_playlist_name",
+                    description="new_description",
+                    tracks=[
+                        CumulativeTrack(
+                            url="https://open.spotify.com/track/abc123",
+                            name="new_track_name",
+                            album=Album(
+                                url="new_album_url",
+                                name="new_album_name",
+                            ),
+                            artists=[
+                                Artist(
+                                    url="new_artist_url",
+                                    name="new_artist_name",
+                                )
+                            ],
+                            duration_ms=1234,
+                            date_added=updated_date_added,
+                            date_added_asterisk=False,
+                            date_removed=None,
+                        ),
+                    ],
+                    date_registered=date_registered,
+                ),
+            )
 
     def test_both_old_and_new_data(self) -> None:
         date_registered = datetime.date(2000, 1, 1)
