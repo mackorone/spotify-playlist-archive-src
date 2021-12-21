@@ -63,8 +63,10 @@ class FileUpdater:
         # Automatically register featured playlists
         if register_featured_playlists:
             for playlist_id in await spotify.get_featured_playlist_ids():
-                path = os.path.join(registry_dir, playlist_id)
-                pathlib.Path(path).touch()
+                path = pathlib.Path(registry_dir, playlist_id)
+                if not path.exists():
+                    logger.info(f"Registering featured playlist: {playlist_id}")
+                    path.touch()
 
         # Determine which playlists to scrape from the files in
         # playlists/registry. This makes it easy to add new a playlist: just
