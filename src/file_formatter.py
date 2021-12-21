@@ -71,7 +71,8 @@ class Formatter:
                 )
             )
 
-        lines += ["", f"Snapshot ID: `{playlist.snapshot_id}`"]
+        lines.append("")
+        lines.append(f"Snapshot ID: `{playlist.snapshot_id}`")
 
         return "\n".join(lines)
 
@@ -108,7 +109,7 @@ class Formatter:
         for i, track in enumerate(playlist.tracks):
             date_added = str(track.date_added)
             if track.date_added_asterisk:
-                date_added += "*"
+                date_added += "\\*"
             lines.append(
                 line_template.format(
                     # Title
@@ -130,6 +131,12 @@ class Formatter:
                     track.date_removed or "",
                 )
             )
+
+        lines.append("")
+        lines.append(
+            f"\\*This playlist was first scraped on {playlist.date_initialized}. "
+            "Prior content cannot be recovered."
+        )
 
         return "\n".join(lines)
 

@@ -1,5 +1,4 @@
 - Cumulative playlist improvements
-    - Add date registered info to cumulative playlists markdown
     - Link to published cumulative playlists
     - Clean up near-duplicates in cumulative playlists
         - Key: title, artists, and duration
@@ -7,7 +6,7 @@
         - Album can (and often does) differ:
             - https://open.spotify.com/track/2nG54Y4a3sH9YpfxMolOyi
             - https://open.spotify.com/track/2z0IupRlVRlDN5r2IVqHyN
-    - Update date for all tracks, not just current tracks
+    - Update data for all tracks, not just current tracks
         - How to handle tracks that are removed from Spotify
     - Sort cumulative playlists (date added, album, etc.)
         - Potentially related to "Flat Data", see below
