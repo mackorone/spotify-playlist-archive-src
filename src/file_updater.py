@@ -19,7 +19,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 class FileUpdater:
     @classmethod
     async def update_files(
-        cls, now: datetime.datetime, prod: bool, register_featured_playlists: bool
+        cls,
+        now: datetime.datetime,
+        playlists_dir: pathlib.Path,
+        auto_register: bool,
+        update_readme: bool,
     ) -> None:
         # Check nonempty to fail fast
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -27,11 +31,17 @@ class FileUpdater:
         assert client_id and client_secret
 
         # Initialize the Spotify client
-        access_token = await Spotify.get_access_token(client_id, client_secret)
+        access_token = await Spotify.get_access_token(
+            client_id=client_id, client_secret=client_secret
+        )
         spotify = Spotify(access_token)
         try:
             await cls._update_files_impl(
-                now, prod, spotify, register_featured_playlists
+                now=now,
+                playlists_dir=playlists_dir,
+                auto_register=auto_register,
+                update_readme=update_readme,
+                spotify=spotify,
             )
         finally:
             await spotify.shutdown()
@@ -40,32 +50,29 @@ class FileUpdater:
     async def _update_files_impl(
         cls,
         now: datetime.datetime,
-        prod: bool,
+        playlists_dir: pathlib.Path,
+        auto_register: bool,
+        update_readme: bool,
         spotify: Spotify,
-        register_featured_playlists: bool,
     ) -> None:
-        # Relative to project root
-        playlists_dir = "playlists" if prod else "_playlists"
-        registry_dir = f"{playlists_dir}/registry"
-        plain_dir = f"{playlists_dir}/plain"
-        pretty_dir = f"{playlists_dir}/pretty"
-        cumulative_dir = f"{playlists_dir}/cumulative"
-
         # Ensure the directories exist
-        for path in [
-            registry_dir,
-            plain_dir,
-            pretty_dir,
-            cumulative_dir,
-        ]:
-            pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+        registry_dir = playlists_dir / "registry"
+        plain_dir = playlists_dir / "plain"
+        pretty_dir = playlists_dir / "pretty"
+        cumulative_dir = playlists_dir / "cumulative"
+        for path in [registry_dir, plain_dir, pretty_dir, cumulative_dir]:
+            path.mkdir(parents=True, exist_ok=True)
 
-        # Automatically register featured playlists
-        if register_featured_playlists:
-            for playlist_id in await spotify.get_featured_playlist_ids():
-                path = pathlib.Path(registry_dir, playlist_id)
+        # Automatically register select playlists
+        if auto_register:
+            playlist_ids = (
+                await spotify.get_spotify_user_playlist_ids()
+                | await spotify.get_featured_playlist_ids()
+            )
+            for playlist_id in playlist_ids:
+                path = registry_dir / playlist_id
                 if not path.exists():
-                    logger.info(f"Registering featured playlist: {playlist_id}")
+                    logger.info(f"Registering playlist: {playlist_id}")
                     path.touch()
 
         # Determine which playlists to scrape from the files in
@@ -80,7 +87,7 @@ class FileUpdater:
         # containing the desired name to playlists/registry/<playlist_id>
         aliases: Dict[PlaylistID, str] = {}
         for playlist_id in playlist_ids:
-            registry_path = os.path.join(registry_dir, playlist_id)
+            registry_path = registry_dir / playlist_id
             with open(registry_path, "r") as f:
                 alias_lines = f.read().splitlines()
             if not alias_lines:
@@ -101,11 +108,11 @@ class FileUpdater:
         readme_lines = []
         playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
         for playlist_id in playlist_ids:
-            plain_path = os.path.join(plain_dir, playlist_id)
-            pretty_md_path = os.path.join(pretty_dir, f"{playlist_id}.md")
-            pretty_json_path = os.path.join(pretty_dir, f"{playlist_id}.json")
-            cumulative_md_path = os.path.join(cumulative_dir, f"{playlist_id}.md")
-            cumulative_json_path = os.path.join(cumulative_dir, f"{playlist_id}.json")
+            plain_path = plain_dir / playlist_id
+            pretty_md_path = pretty_dir / f"{playlist_id}.md"
+            pretty_json_path = pretty_dir / f"{playlist_id}.json"
+            cumulative_md_path = cumulative_dir / f"{playlist_id}.md"
+            cumulative_json_path = cumulative_dir / f"{playlist_id}.json"
 
             # Get the data from Spotify
             logger.info(f"Fetching playlist: {playlist_id}")
@@ -179,7 +186,7 @@ class FileUpdater:
             raise Exception(f"Duplicate playlist names: {duplicate_names}")
 
         # Check for unexpected files in playlist directories
-        unexpected_files: Set[str] = set()
+        unexpected_files: Set[pathlib.Path] = set()
         for directory, suffixes in [
             (plain_dir, [""]),
             (pretty_dir, [".md", ".json"]),
@@ -190,12 +197,12 @@ class FileUpdater:
                     cls._remove_suffix(filename, suffix) in playlist_ids
                     for suffix in suffixes
                 ):
-                    unexpected_files.add(os.path.join(directory, filename))
+                    unexpected_files.add(directory / filename)
         if unexpected_files:
             raise Exception(f"Unexpected files: {unexpected_files}")
 
         # Lastly, update README.md
-        if prod:
+        if update_readme:
             readme = open("README.md").read().splitlines()
             index = readme.index("## Playlists")
             lines = (
@@ -213,7 +220,7 @@ class FileUpdater:
         return string
 
     @classmethod
-    def _get_file_content_or_empty_string(cls, path: str) -> str:
+    def _get_file_content_or_empty_string(cls, path: pathlib.Path) -> str:
         try:
             with open(path, "r") as f:
                 return "".join(f.readlines())
@@ -222,7 +229,7 @@ class FileUpdater:
 
     @classmethod
     def _write_to_file_if_content_changed(
-        cls, prev_content: str, content: str, path: str
+        cls, prev_content: str, content: str, path: pathlib.Path
     ) -> None:
         if content == prev_content:
             logger.info(f"No changes to file: {path}")

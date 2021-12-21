@@ -21,12 +21,10 @@
           from the playlist, and is empty/null if the track is still present
 
 - Features
-    - Automatically add all "Spotify" user playlists
     - Look into Flat Data: https://next.github.com/projects/flat-data
 
 - Codebase
     - Add more unit tests
-    - Run the script from anywhere in repo
     - Integration test for README.md updates
     - Replace shell commands with Python lib
     - Replace from_json with Python lib

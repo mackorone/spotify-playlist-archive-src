@@ -5,7 +5,7 @@ import base64
 import datetime
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional, Set
 
 import aiohttp
 
@@ -72,11 +72,29 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await self._sleep(0)
 
-    async def get_featured_playlist_ids(self) -> List[PlaylistID]:
+    async def get_spotify_user_playlist_ids(self) -> Set[PlaylistID]:
+        logger.info("Fetching @spotify playlist IDs")
+        playlist_ids: Set[PlaylistID] = set()
+        href = "https://api.spotify.com/v1/users/spotify/playlists?limit=50"
+        while href:
+            async with self._get_with_retry(href) as response:
+                data = await response.json(content_type=None)
+            playlist_ids |= {PlaylistID(item["id"]) for item in data["items"]}
+            href = data.get("next")
+        return playlist_ids
+
+    async def get_featured_playlist_ids(self) -> Set[PlaylistID]:
+        logger.info("Fetching featured playlist IDs")
+        playlist_ids: Set[PlaylistID] = set()
         href = "https://api.spotify.com/v1/browse/featured-playlists?limit=50"
-        async with self._get_with_retry(href) as response:
-            data = await response.json(content_type=None)
-        return [PlaylistID(item["id"]) for item in data["playlists"]["items"]]
+        while href:
+            async with self._get_with_retry(href) as response:
+                data = await response.json(content_type=None)
+            playlist_ids |= {
+                PlaylistID(item["id"]) for item in data["playlists"]["items"]
+            }
+            href = data.get("next")
+        return playlist_ids
 
     async def get_playlist(
         self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
