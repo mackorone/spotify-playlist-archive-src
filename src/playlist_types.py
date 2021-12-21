@@ -31,7 +31,7 @@ class Track:
 
     def get_id(self) -> str:
         track_id = self.url.split("/")[-1]
-        assert track_id.isalnum()
+        assert track_id.isalnum(), repr(track_id)
         return track_id
 
 
@@ -70,7 +70,7 @@ class CumulativeTrack:
 
     def get_id(self) -> str:
         track_id = self.url.split("/")[-1]
-        assert track_id.isalnum()
+        assert track_id.isalnum(), repr(track_id)
         return track_id
 
 

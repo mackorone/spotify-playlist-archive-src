@@ -65,7 +65,7 @@ class FileUpdater:
 
         # Automatically register select playlists
         if auto_register:
-            playlist_ids = (
+            playlist_ids = sorted(
                 await spotify.get_spotify_user_playlist_ids()
                 | await spotify.get_featured_playlist_ids()
             )
@@ -86,7 +86,7 @@ class FileUpdater:
         # same name for every user. To add an alias, add a single line
         # containing the desired name to playlists/registry/<playlist_id>
         aliases: Dict[PlaylistID, str] = {}
-        for playlist_id in playlist_ids:
+        for playlist_id in sorted(playlist_ids):
             registry_path = registry_dir / playlist_id
             with open(registry_path, "r") as f:
                 alias_lines = f.read().splitlines()
@@ -107,7 +107,7 @@ class FileUpdater:
 
         readme_lines = []
         playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
-        for playlist_id in playlist_ids:
+        for playlist_id in sorted(playlist_ids):
             plain_path = plain_dir / playlist_id
             pretty_md_path = pretty_dir / f"{playlist_id}.md"
             pretty_json_path = pretty_dir / f"{playlist_id}.json"
