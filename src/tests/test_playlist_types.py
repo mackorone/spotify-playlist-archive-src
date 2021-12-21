@@ -139,7 +139,7 @@ class TestCumulativeTrackGetID(TestCase):
 
 class TestCumulativePlaylistUpdate(TestCase):
     def test_just_old_data(self) -> None:
-        date_registered = datetime.date(2000, 1, 1)
+        date_initialized = datetime.date(2000, 1, 1)
         date_added = datetime.date(2000, 1, 2)
         other = datetime.date(2000, 1, 3)
         today = datetime.date(2000, 1, 4)
@@ -173,7 +173,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                                 date_removed=date_removed,
                             ),
                         ],
-                        date_registered=date_registered,
+                        date_initialized=date_initialized,
                     ).update(
                         today=today,
                         playlist=Playlist(
@@ -208,12 +208,12 @@ class TestCumulativePlaylistUpdate(TestCase):
                                 date_removed=updated_date_removed,
                             ),
                         ],
-                        date_registered=date_registered,
+                        date_initialized=date_initialized,
                     ),
                 )
 
     def test_just_new_data(self) -> None:
-        date_registered = datetime.date(2000, 1, 1)
+        date_initialized = datetime.date(2000, 1, 1)
         time_added = datetime.datetime(2000, 1, 2)
         date_added = time_added.date()
         today = datetime.date(2000, 1, 3)
@@ -227,7 +227,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                     name="old_playlist_name",
                     description="old_description",
                     tracks=[],
-                    date_registered=date_registered,
+                    date_initialized=date_initialized,
                 ).update(
                     today=today,
                     playlist=Playlist(
@@ -279,12 +279,12 @@ class TestCumulativePlaylistUpdate(TestCase):
                             date_removed=None,
                         ),
                     ],
-                    date_registered=date_registered,
+                    date_initialized=date_initialized,
                 ),
             )
 
     def test_both_old_and_new_data(self) -> None:
-        date_registered = datetime.date(2000, 1, 1)
+        date_initialized = datetime.date(2000, 1, 1)
         date_removed = datetime.date(2000, 1, 4)
         today = datetime.date(2000, 1, 5)
         for (
@@ -343,7 +343,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             date_removed=date_removed,
                         ),
                     ],
-                    date_registered=date_registered,
+                    date_initialized=date_initialized,
                 ).update(
                     today=today,
                     playlist=Playlist(
@@ -399,7 +399,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             date_removed=None,
                         ),
                     ],
-                    date_registered=date_registered,
+                    date_initialized=date_initialized,
                 ),
             )
 
@@ -448,7 +448,7 @@ class TestCumulativePlaylistToAndFromJSON(TestCase):
                     date_removed=None,
                 ),
             ],
-            date_registered=datetime.date(2021, 12, 25),
+            date_initialized=datetime.date(2021, 12, 25),
         )
         cumulative_playlist_json = cumulative_playlist.to_json()
         self.assertEqual(
@@ -456,7 +456,7 @@ class TestCumulativePlaylistToAndFromJSON(TestCase):
             textwrap.dedent(
                 """\
                 {
-                  "date_registered": "2021-12-25",
+                  "date_initialized": "2021-12-25",
                   "description": "description",
                   "name": "playlist_name",
                   "tracks": [

@@ -80,7 +80,7 @@ class CumulativePlaylist:
     name: str
     description: str
     tracks: Sequence[CumulativeTrack]
-    date_registered: datetime.date
+    date_initialized: datetime.date
 
     def update(self, today: datetime.date, playlist: Playlist) -> CumulativePlaylist:
         updated_tracks: List[CumulativeTrack] = []
@@ -141,7 +141,7 @@ class CumulativePlaylist:
                     track.get_id(),
                 ),
             ),
-            date_registered=self.date_registered,
+            date_initialized=self.date_initialized,
         )
 
     @classmethod
@@ -157,12 +157,12 @@ class CumulativePlaylist:
         description = playlist["description"]
         assert isinstance(description, str)
 
-        date_registered_string = playlist["date_registered"]
-        assert isinstance(date_registered_string, str)
-        date_registered = datetime.datetime.strptime(
-            date_registered_string, "%Y-%m-%d"
+        date_initialized_string = playlist["date_initialized"]
+        assert isinstance(date_initialized_string, str)
+        date_initialized = datetime.datetime.strptime(
+            date_initialized_string, "%Y-%m-%d"
         ).date()
-        assert isinstance(date_registered, datetime.date)
+        assert isinstance(date_initialized, datetime.date)
 
         cumulative_tracks: List[CumulativeTrack] = []
         assert isinstance(playlist["tracks"], list)
@@ -234,7 +234,7 @@ class CumulativePlaylist:
             name=playlist_name,
             description=description,
             tracks=cumulative_tracks,
-            date_registered=date_registered,
+            date_initialized=date_initialized,
         )
 
     def to_json(self) -> str:
