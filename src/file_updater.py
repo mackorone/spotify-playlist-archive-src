@@ -18,7 +18,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class FileUpdater:
     @classmethod
-    async def update_files(cls, now: datetime.datetime, prod: bool) -> None:
+    async def update_files(
+        cls, now: datetime.datetime, prod: bool, register_featured_playlists: bool
+    ) -> None:
         # Check nonempty to fail fast
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
         client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -28,13 +30,19 @@ class FileUpdater:
         access_token = await Spotify.get_access_token(client_id, client_secret)
         spotify = Spotify(access_token)
         try:
-            await cls._update_files_impl(now, prod, spotify)
+            await cls._update_files_impl(
+                now, prod, spotify, register_featured_playlists
+            )
         finally:
             await spotify.shutdown()
 
     @classmethod
     async def _update_files_impl(
-        cls, now: datetime.datetime, prod: bool, spotify: Spotify
+        cls,
+        now: datetime.datetime,
+        prod: bool,
+        spotify: Spotify,
+        register_featured_playlists: bool,
     ) -> None:
         # Relative to project root
         playlists_dir = "playlists" if prod else "_playlists"
@@ -51,6 +59,12 @@ class FileUpdater:
             cumulative_dir,
         ]:
             pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+
+        # Automatically register featured playlists
+        if register_featured_playlists:
+            for playlist_id in await spotify.get_featured_playlist_ids():
+                path = os.path.join(registry_dir, playlist_id)
+                pathlib.Path(path).touch()
 
         # Determine which playlists to scrape from the files in
         # playlists/registry. This makes it easy to add new a playlist: just

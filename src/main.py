@@ -20,11 +20,17 @@ async def main() -> None:
         help="Commit and push updated playlists",
         action="store_true",
     )
+    parser.add_argument(
+        "--register-featured-playlists",
+        help="Automatically register featured playlists",
+        action="store_true",
+    )
     args = parser.parse_args()
     now = datetime.datetime.now()
 
     prod = bool(args.prod)
-    await FileUpdater.update_files(now, prod)
+    register_featured_playlists = bool(args.register_featured_playlists)
+    await FileUpdater.update_files(now, prod, register_featured_playlists)
     if prod:
         Committer.push_updates(now)
 

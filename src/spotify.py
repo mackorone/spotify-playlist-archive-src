@@ -5,7 +5,7 @@ import base64
 import datetime
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Dict, Optional, Sequence
+from typing import AsyncIterator, Dict, List, Optional
 
 import aiohttp
 
@@ -72,6 +72,12 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await self._sleep(0)
 
+    async def get_featured_playlist_ids(self) -> List[PlaylistID]:
+        href = "https://api.spotify.com/v1/browse/featured-playlists?limit=50"
+        async with self._get_with_retry(href) as response:
+            data = await response.json(content_type=None)
+        return [PlaylistID(item["id"]) for item in data["playlists"]["items"]]
+
     async def get_playlist(
         self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
     ) -> Playlist:
@@ -113,7 +119,7 @@ class Spotify:
             snapshot_id=snapshot_id,
         )
 
-    async def _get_tracks(self, playlist_id: PlaylistID) -> Sequence[Track]:
+    async def _get_tracks(self, playlist_id: PlaylistID) -> List[Track]:
         tracks = []
         tracks_href = self._get_tracks_href(playlist_id)
 
