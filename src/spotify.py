@@ -11,7 +11,7 @@ import aiohttp
 
 from external import external
 from playlist_id import PlaylistID
-from playlist_types import Album, Artist, Playlist, Track
+from playlist_types import Album, Artist, Owner, Playlist, Track
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -129,12 +129,19 @@ class Spotify:
         url = self._get_url(data["external_urls"])
         tracks = await self._get_tracks(playlist_id)
         snapshot_id = data["snapshot_id"]
+        num_followers = data["followers"]["total"]
+        owner = Owner(
+            name=data["owner"]["display_name"],
+            url=self._get_url(data["owner"]["external_urls"]),
+        )
         return Playlist(
             url=url,
             name=name,
             description=description,
             tracks=tracks,
             snapshot_id=snapshot_id,
+            num_followers=num_followers,
+            owner=owner,
         )
 
     async def _get_tracks(self, playlist_id: PlaylistID) -> List[Track]:
@@ -218,7 +225,10 @@ class Spotify:
 
     @classmethod
     def _get_playlist_href(cls, playlist_id: PlaylistID) -> str:
-        rest = "{}?fields=external_urls,name,description,snapshot_id"
+        rest = (
+            "{}?fields=external_urls,name,description,snapshot_id,"
+            "owner(display_name,external_urls),followers.total"
+        )
         template = cls.BASE_URL + rest
         return template.format(playlist_id)
 

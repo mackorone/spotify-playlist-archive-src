@@ -7,7 +7,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from playlist_id import PlaylistID
-from playlist_types import Album, Artist, Playlist, Track
+from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import (
     FailedToGetAccessTokenError,
     FailedToGetPlaylistError,
@@ -134,6 +134,15 @@ class TestGetPlaylist(SpotifyTestCase):
                     "spotify": "playlist_url",
                 },
                 "snapshot_id": "playlist_snapshot_id",
+                "followers": {
+                    "total": 999,
+                },
+                "owner": {
+                    "display_name": "owner_name",
+                    "external_urls": {
+                        "spotify": "owner_url",
+                    },
+                },
             }
         spotify = Spotify("token")
         playlist = await spotify.get_playlist(PlaylistID("abc123"), aliases={})
@@ -145,6 +154,11 @@ class TestGetPlaylist(SpotifyTestCase):
                 description="playlist_description",
                 tracks=[track],
                 snapshot_id="playlist_snapshot_id",
+                num_followers=999,
+                owner=Owner(
+                    url="owner_url",
+                    name="owner_name",
+                ),
             ),
         )
 

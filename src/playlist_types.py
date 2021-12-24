@@ -9,6 +9,12 @@ from typing import List, Optional, Sequence
 
 
 @dataclasses.dataclass(frozen=True)
+class Owner:
+    url: str
+    name: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Album:
     url: str
     name: str
@@ -42,6 +48,8 @@ class Playlist:
     description: str
     tracks: Sequence[Track]
     snapshot_id: str
+    num_followers: int
+    owner: Owner
 
     def to_json(self) -> str:
         return json.dumps(
@@ -147,6 +155,7 @@ class CumulativePlaylist:
     @classmethod
     def from_json(cls, content: str) -> CumulativePlaylist:
         playlist = json.loads(content)
+        assert isinstance(playlist, dict)
 
         playlist_url = playlist["url"]
         assert isinstance(playlist_url, str)

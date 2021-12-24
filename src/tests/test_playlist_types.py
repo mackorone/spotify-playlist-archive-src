@@ -9,6 +9,7 @@ from playlist_types import (
     Artist,
     CumulativePlaylist,
     CumulativeTrack,
+    Owner,
     Playlist,
     Track,
 )
@@ -72,12 +73,22 @@ class TestPlaylistToJSON(TestCase):
                     ),
                 ],
                 snapshot_id="snapshot_id",
+                num_followers=999,
+                owner=Owner(
+                    url="owner_url",
+                    name="owner_name",
+                ),
             ).to_json(),
             textwrap.dedent(
                 """\
                 {
                   "description": "description",
                   "name": "playlist_name",
+                  "num_followers": 999,
+                  "owner": {
+                    "name": "owner_name",
+                    "url": "owner_url"
+                  },
                   "snapshot_id": "snapshot_id",
                   "tracks": [
                     {
@@ -182,6 +193,11 @@ class TestCumulativePlaylistUpdate(TestCase):
                             description="new_description",
                             tracks=[],
                             snapshot_id="new_snapshot_id",
+                            num_followers=999,
+                            owner=Owner(
+                                url="new_owner_url",
+                                name="new_owner_name",
+                            ),
                         ),
                     ),
                     CumulativePlaylist(
@@ -253,6 +269,11 @@ class TestCumulativePlaylistUpdate(TestCase):
                             ),
                         ],
                         snapshot_id="new_snapshot_id",
+                        num_followers=999,
+                        owner=Owner(
+                            url="new_owner_url",
+                            name="new_owner_name",
+                        ),
                     ),
                 ),
                 CumulativePlaylist(
@@ -373,6 +394,11 @@ class TestCumulativePlaylistUpdate(TestCase):
                             ),
                         ],
                         snapshot_id="new_snapshot_id",
+                        num_followers=999,
+                        owner=Owner(
+                            url="new_owner_url",
+                            name="new_owner_name",
+                        ),
                     ),
                 ),
                 CumulativePlaylist(
