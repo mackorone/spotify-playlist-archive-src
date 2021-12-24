@@ -134,7 +134,7 @@ class Formatter:
 
         lines.append("")
         lines.append(
-            f"\\*This playlist was first scraped on {playlist.date_initialized}. "
+            f"\\*This playlist was first scraped on {playlist.date_first_scrape}. "
             "Prior content cannot be recovered."
         )
 
