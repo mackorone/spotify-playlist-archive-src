@@ -158,7 +158,7 @@ class FileUpdater:
                     name="",
                     description="",
                     tracks=[],
-                    date_first_scrape=today,
+                    date_first_scraped=today,
                 )
             new_struct = prev_struct.update(today, playlist)
             cls._write_to_file_if_content_changed(

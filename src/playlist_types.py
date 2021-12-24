@@ -80,7 +80,7 @@ class CumulativePlaylist:
     name: str
     description: str
     tracks: Sequence[CumulativeTrack]
-    date_first_scrape: datetime.date
+    date_first_scraped: datetime.date
 
     def update(self, today: datetime.date, playlist: Playlist) -> CumulativePlaylist:
         updated_tracks: List[CumulativeTrack] = []
@@ -141,7 +141,7 @@ class CumulativePlaylist:
                     track.get_id(),
                 ),
             ),
-            date_first_scrape=self.date_first_scrape,
+            date_first_scraped=self.date_first_scraped,
         )
 
     @classmethod
@@ -157,12 +157,12 @@ class CumulativePlaylist:
         description = playlist["description"]
         assert isinstance(description, str)
 
-        date_first_scrape_string = playlist["date_first_scrape"]
-        assert isinstance(date_first_scrape_string, str)
-        date_first_scrape = datetime.datetime.strptime(
-            date_first_scrape_string, "%Y-%m-%d"
+        date_first_scraped_string = playlist["date_first_scraped"]
+        assert isinstance(date_first_scraped_string, str)
+        date_first_scraped = datetime.datetime.strptime(
+            date_first_scraped_string, "%Y-%m-%d"
         ).date()
-        assert isinstance(date_first_scrape, datetime.date)
+        assert isinstance(date_first_scraped, datetime.date)
 
         cumulative_tracks: List[CumulativeTrack] = []
         assert isinstance(playlist["tracks"], list)
@@ -234,7 +234,7 @@ class CumulativePlaylist:
             name=playlist_name,
             description=description,
             tracks=cumulative_tracks,
-            date_first_scrape=date_first_scrape,
+            date_first_scraped=date_first_scraped,
         )
 
     def to_json(self) -> str:
