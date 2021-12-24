@@ -159,14 +159,14 @@ class Spotify:
                 if not track:
                     continue
 
+                track_url = self._get_url(track["external_urls"])
+                if not track_url:
+                    logger.warning("Skipping track with empty URL")
+                    continue
+
                 track_name = track["name"]
                 if not track_name:
                     logger.warning(f"Empty track name: {track_url}")
-
-                track_url = self._get_url(track["external_urls"])
-                if not track_url:
-                    logger.warning(f"Empty track URL: {track_name}")
-                    continue
 
                 album_url = self._get_url(track["album"]["external_urls"])
                 album_name = track["album"]["name"]

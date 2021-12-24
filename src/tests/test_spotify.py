@@ -193,6 +193,18 @@ class TestGetTracks(SpotifyTestCase):
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
+    async def test_empty_track_url(self, logger: Mock) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "items": [{"track": {"external_urls": {"spotify": ""}}}],
+                "next": "",
+            }
+        spotify = Spotify("token")
+        tracks = await spotify._get_tracks(PlaylistID("abc123"))
+        self.assertEqual(tracks, [])
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
     async def test_missing_info(self, logger: Mock) -> None:
         async with self.mock_session.get.return_value as mock_response:
             mock_response.json.return_value = {
@@ -206,7 +218,7 @@ class TestGetTracks(SpotifyTestCase):
                                 "external_urls": {},
                             },
                             "artists": [],
-                            "external_urls": {},
+                            "external_urls": {"spotify": "track_url"},
                         },
                         "added_at": "1970-01-01T00:00:00Z",
                     },
@@ -219,7 +231,7 @@ class TestGetTracks(SpotifyTestCase):
             tracks,
             [
                 Track(
-                    url="",
+                    url="track_url",
                     name="",
                     album=Album(
                         url="",
