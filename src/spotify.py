@@ -130,10 +130,12 @@ class Spotify:
         tracks = await self._get_tracks(playlist_id)
         snapshot_id = data["snapshot_id"]
         num_followers = data["followers"]["total"]
-        owner = Owner(
-            name=data["owner"]["display_name"],
-            url=self._get_url(data["owner"]["external_urls"]),
-        )
+
+        owner_url = self._get_url(data["owner"]["external_urls"])
+        owner_name = data["owner"]["display_name"]
+        if not owner_name:
+            logger.warning(f"Empty owner name: {owner_url}")
+
         return Playlist(
             url=url,
             name=name,
@@ -141,7 +143,10 @@ class Spotify:
             tracks=tracks,
             snapshot_id=snapshot_id,
             num_followers=num_followers,
-            owner=owner,
+            owner=Owner(
+                url=owner_url,
+                name=owner_name,
+            ),
         )
 
     async def _get_tracks(self, playlist_id: PlaylistID) -> List[Track]:

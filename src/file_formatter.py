@@ -50,7 +50,20 @@ class Formatter:
             playlist_description=playlist.description,
             is_cumulative=False,
         )
+        num_likes = playlist.num_followers
+        num_songs = len(playlist.tracks)
         lines += [
+            "{} - {} - {} - {}".format(
+                cls._link(
+                    cls._escape_markdown(playlist.owner.name), playlist.owner.url
+                ),
+                f"{num_likes:,} like" + ("s" if num_likes > 1 else ""),
+                f"{num_songs:,} song" + ("s" if num_songs > 1 else ""),
+                cls._format_duration_english(
+                    sum(track.duration_ms for track in playlist.tracks)
+                ),
+            ),
+            "",
             line_template.format(*columns),
             divider_line,
         ]
@@ -200,6 +213,29 @@ class Formatter:
             index += 1
 
         return timedelta[index:]
+
+    @classmethod
+    def _format_duration_english(cls, duration_ms: int) -> str:
+        second_ms = 1000
+        minute_ms = 60 * second_ms
+        hour_ms = 60 * minute_ms
+        day_ms = 24 * hour_ms
+
+        days = duration_ms // day_ms
+        duration_ms -= days * day_ms
+        hours = duration_ms // hour_ms
+        duration_ms -= hours * hour_ms
+        minutes = duration_ms // minute_ms
+        duration_ms -= minutes * minute_ms
+        seconds = duration_ms // second_ms
+
+        if not (days or hours or minutes):
+            return f"{seconds} sec"
+        if not (days or hours):
+            return f"{minutes} min {seconds} sec"
+        if not days:
+            return f"{hours} hr {minutes} min"
+        return f"{days:,} day {hours} hr {minutes} min"
 
     @classmethod
     def _escape_markdown(cls, text: str) -> EscapedText:
