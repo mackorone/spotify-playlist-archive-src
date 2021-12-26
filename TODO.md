@@ -24,10 +24,12 @@
     - Look into Flat Data: https://next.github.com/projects/flat-data
 
 - Codebase
+    - Merge cumulative regeneration code
     - Add more unit tests
     - Integration test for README.md updates
     - Replace shell commands with Python lib
     - Replace from_json with Python lib
 
 - Performance
+    - Don't update snapshot ID if no other changes
     - Only fetch each track once (same track in multiple playlists)

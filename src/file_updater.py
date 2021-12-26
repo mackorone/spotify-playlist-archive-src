@@ -3,10 +3,10 @@
 import collections
 import datetime
 import logging
-import os
 import pathlib
 from typing import Dict, Set
 
+from environment import Environment
 from file_formatter import Formatter
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist
@@ -26,8 +26,8 @@ class FileUpdater:
         update_readme: bool,
     ) -> None:
         # Check nonempty to fail fast
-        client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+        client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
+        client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
         assert client_id and client_secret
 
         # Initialize the Spotify client
@@ -79,7 +79,7 @@ class FileUpdater:
         # playlists/registry. This makes it easy to add new a playlist: just
         # touch an empty file like playlists/registry/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids = {PlaylistID(x) for x in os.listdir(registry_dir)}
+        playlist_ids = {PlaylistID(path.name) for path in registry_dir.iterdir()}
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
@@ -192,12 +192,12 @@ class FileUpdater:
             (pretty_dir, [".md", ".json"]),
             (cumulative_dir, [".md", ".json"]),
         ]:
-            for filename in os.listdir(directory):
+            for path in directory.iterdir():
                 if not any(
-                    cls._remove_suffix(filename, suffix) in playlist_ids
+                    cls._remove_suffix(path.name, suffix) in playlist_ids
                     for suffix in suffixes
                 ):
-                    unexpected_files.add(directory / filename)
+                    unexpected_files.add(path)
         if unexpected_files:
             raise Exception(f"Unexpected files: {unexpected_files}")
 

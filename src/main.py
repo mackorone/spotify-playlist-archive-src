@@ -4,10 +4,9 @@ import argparse
 import asyncio
 import datetime
 import logging
-import os
-import pathlib
 
 from committer import Committer
+from environment import Environment
 from external import allow_external_calls
 from file_updater import FileUpdater
 
@@ -32,18 +31,10 @@ async def main() -> None:
     auto_register = bool(args.auto_register)
     commit_and_push = bool(args.commit_and_push)
 
-    # Get the absolute path to the playlists directory
-    repo_root_dir = pathlib.Path(__file__).resolve().parent.parent
-    assert repo_root_dir.name == "spotify-playlist-archive"
-    repo_root_dir = pathlib.Path(os.path.relpath(repo_root_dir))
-    prod_name = "playlists"
-    test_name = "_playlists/"
-    with open(repo_root_dir / ".gitignore") as f:
-        assert test_name in f.read().splitlines()
     if commit_and_push:
-        playlists_dir = repo_root_dir / prod_name
+        playlists_dir = Environment.get_prod_playlists_dir()
     else:
-        playlists_dir = repo_root_dir / test_name
+        playlists_dir = Environment.get_test_playlists_dir()
 
     await FileUpdater.update_files(
         now=now,

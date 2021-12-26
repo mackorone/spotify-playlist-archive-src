@@ -2,9 +2,10 @@
 
 import datetime
 import logging
-import os
 import subprocess
 from typing import Sequence
+
+from environment import Environment
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class Committer:
 
         logger.info("Committing changes")
 
-        run_number = os.getenv("GITHUB_RUN_NUMBER")
+        run_number = Environment.get_env("GITHUB_RUN_NUMBER")
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         message = f"[skip ci] Run: {run_number} ({now_str})"
         commit = cls._run(["git", "commit", "-m", message])
@@ -57,7 +58,7 @@ class Committer:
 
         logger.info("Adding new origin")
         # It's ok to print the token, GitHub Actions will hide it
-        token = os.getenv("BOT_GITHUB_ACCESS_TOKEN")
+        token = Environment.get_env("BOT_GITHUB_ACCESS_TOKEN")
         url = (
             f"https://mackorone-bot:{token}@github.com/mackorone/"
             "spotify-playlist-archive.git"
