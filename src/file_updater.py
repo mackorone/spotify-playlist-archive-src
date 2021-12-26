@@ -4,7 +4,7 @@ import collections
 import datetime
 import logging
 import pathlib
-from typing import Dict, Set
+from typing import Dict, Mapping, Set
 
 from environment import Environment
 from file_formatter import Formatter
@@ -14,6 +14,10 @@ from spotify import Spotify
 from url import URL
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class MalformedAliasError(Exception):
+    pass
 
 
 class FileUpdater:
@@ -65,45 +69,22 @@ class FileUpdater:
 
         # Automatically register select playlists
         if auto_register:
-            playlist_ids = sorted(
-                await spotify.get_spotify_user_playlist_ids()
-                | await spotify.get_featured_playlist_ids()
-            )
-            for playlist_id in playlist_ids:
-                path = registry_dir / playlist_id
-                if not path.exists():
-                    logger.info(f"Registering playlist: {playlist_id}")
-                    path.touch()
+            await cls._auto_register(registry_dir, spotify)
 
         # Determine which playlists to scrape from the files in
         # playlists/registry. This makes it easy to add new a playlist: just
         # touch an empty file like playlists/registry/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids = {PlaylistID(path.name) for path in registry_dir.iterdir()}
+        playlist_ids: Mapping[PlaylistID, pathlib.Path] = {
+            PlaylistID(path.name): path for path in registry_dir.iterdir()
+        }
 
         # Aliases are alternative playlists names. They're useful for avoiding
         # naming collisions when archiving personalized playlists, which have the
         # same name for every user. To add an alias, add a single line
         # containing the desired name to playlists/registry/<playlist_id>
-        aliases: Dict[PlaylistID, str] = {}
-        for playlist_id in sorted(playlist_ids):
-            registry_path = registry_dir / playlist_id
-            with open(registry_path, "r") as f:
-                alias_lines = f.read().splitlines()
-            if not alias_lines:
-                continue
-            if len(alias_lines) != 1:
-                raise Exception(f"Malformed alias: {playlist_id}")
-            alias = alias_lines[0]
-            # GitHub makes it easy to create single-line files that look empty
-            # but actually contain a single newline. Normalize those files and
-            # ignore the empty alias.
-            if not alias:
-                logger.info(f"Truncating empty alias: {registry_path}")
-                with open(registry_path, "w"):
-                    pass
-                continue
-            aliases[playlist_id] = alias
+        cls._fixup_aliases(playlist_ids)
+        aliases = cls._get_aliases(playlist_ids)
 
         readme_lines = []
         playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
@@ -212,6 +193,48 @@ class FileUpdater:
             )
             with open("README.md", "w") as f:
                 f.write("\n".join(lines) + "\n")
+
+    @classmethod
+    async def _auto_register(cls, registry_dir: pathlib.Path, spotify: Spotify) -> None:
+        playlist_ids = sorted(
+            await spotify.get_spotify_user_playlist_ids()
+            | await spotify.get_featured_playlist_ids()
+        )
+        for playlist_id in playlist_ids:
+            path = registry_dir / playlist_id
+            if not path.exists():
+                logger.info(f"Registering playlist: {playlist_id}")
+                path.touch()
+
+    @classmethod
+    def _fixup_aliases(cls, playlist_ids: Mapping[PlaylistID, pathlib.Path]) -> None:
+        # GitHub makes it easy to create files that look empty but actually
+        # contain a single newline. Normalize them to simplify other logic.
+        for playlist_id, path in sorted(playlist_ids.items()):
+            with open(path, "r") as f:
+                content = f.read()
+            if content == "\n":
+                logger.info(f"Truncating empty alias: {playlist_id}")
+                with open(path, "w"):
+                    pass
+
+    @classmethod
+    def _get_aliases(
+        cls, playlist_ids: Mapping[PlaylistID, pathlib.Path]
+    ) -> Dict[PlaylistID, str]:
+        aliases: Dict[PlaylistID, str] = {}
+        for playlist_id, path in sorted(playlist_ids.items()):
+            with open(path, "r") as f:
+                lines = f.read().splitlines()
+            if not lines:
+                continue
+            if len(lines) != 1:
+                raise MalformedAliasError(f"Malformed alias: {playlist_id}")
+            alias = lines[0]
+            if (not alias) or alias.isspace():
+                raise MalformedAliasError(f"Malformed alias: {playlist_id}")
+            aliases[playlist_id] = alias
+        return aliases
 
     @classmethod
     def _remove_suffix(cls, string: str, suffix: str) -> str:
