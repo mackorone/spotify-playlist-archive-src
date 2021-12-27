@@ -72,8 +72,16 @@ class CumulativeTrack:
     album: Album
     artists: Sequence[Artist]
     duration_ms: int
+    # Represents the first date that the track appeared in the playlist, to our
+    # best knowledge - we can't know if a track was added and then removed
+    # prior to the playlist being scraped
     date_added: datetime.date
+    # Indicates that the track belonged to the first version of the playlist
+    # that was indexed, but it's too late to go back and check when the track
+    # was originally added to the playlist
     date_added_asterisk: bool
+    # Represents the most recent date that the track was removed from the
+    # playlist, is empty/null if the track is still present
     date_removed: Optional[datetime.date]
 
     def get_id(self) -> str:

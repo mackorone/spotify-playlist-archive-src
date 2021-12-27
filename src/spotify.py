@@ -4,8 +4,7 @@ import asyncio
 import base64
 import datetime
 import logging
-from contextlib import asynccontextmanager
-from typing import AsyncIterator, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 
@@ -16,15 +15,7 @@ from playlist_types import Album, Artist, Owner, Playlist, Track
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class FailedToGetAccessTokenError(Exception):
-    pass
-
-
-class FailedToGetPlaylistError(Exception):
-    pass
-
-
-class FailedToGetTracksError(Exception):
+class InvalidDataError(Exception):
     pass
 
 
@@ -42,10 +33,7 @@ class Spotify:
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
 
-    @asynccontextmanager
-    async def _get_with_retry(
-        self, href: str
-    ) -> AsyncIterator[aiohttp.client_reqrep.ClientResponse]:
+    async def _get_with_retry(self, href: str) -> Dict[str, Any]:
         while True:
             async with self._session.get(href) as response:
                 if response.status == 429:
@@ -57,8 +45,14 @@ class Spotify:
                     backoff_seconds = 1
                     reason = "Server error"
                 else:
-                    yield response
-                    return
+                    data = await response.json(content_type=None)
+                    if not isinstance(data, dict):
+                        raise InvalidDataError(f"Invalid response: {data}")
+                    if not data:
+                        raise InvalidDataError(f"Empty response: {data}")
+                    if "error" in data:
+                        raise InvalidDataError(f"Error response: {data}")
+                    return data
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
                     raise RetryBudgetExceededError("Retry budget exceeded")
@@ -77,9 +71,8 @@ class Spotify:
         playlist_ids: Set[PlaylistID] = set()
         href = "https://api.spotify.com/v1/users/spotify/playlists?limit=50"
         while href:
-            async with self._get_with_retry(href) as response:
-                data = await response.json(content_type=None)
-            playlist_ids |= {PlaylistID(item["id"]) for item in data["items"]}
+            data = await self._get_with_retry(href)
+            playlist_ids |= self._extract_playlist_ids(data)
             href = data.get("next")
         return playlist_ids
 
@@ -88,56 +81,87 @@ class Spotify:
         playlist_ids: Set[PlaylistID] = set()
         href = "https://api.spotify.com/v1/browse/featured-playlists?limit=50"
         while href:
-            async with self._get_with_retry(href) as response:
-                data = await response.json(content_type=None)
-            playlist_ids |= {
-                PlaylistID(item["id"]) for item in data["playlists"]["items"]
-            }
+            data = await self._get_with_retry(href)
+            playlists = data.get("playlists")
+            if not isinstance(playlists, dict):
+                raise InvalidDataError(f"Invalid playlists: {playlists}")
+            playlist_ids |= self._extract_playlist_ids(playlists)
             href = data.get("next")
+        return playlist_ids
+
+    @classmethod
+    def _extract_playlist_ids(cls, data: Dict[str, Any]) -> Set[PlaylistID]:
+        playlist_ids: Set[PlaylistID] = set()
+        items = data.get("items")
+        if not isinstance(items, list):
+            raise InvalidDataError(f"Invalid items: {items}")
+        for item in items:
+            if not isinstance(item, dict):
+                raise InvalidDataError(f"Invalid item: {item}")
+            playlist_id = item.get("id")
+            if not isinstance(playlist_id, str):
+                raise InvalidDataError(f"Invalid playlist ID: {playlist_id}")
+            playlist_ids.add(PlaylistID(playlist_id))
         return playlist_ids
 
     async def get_playlist(
         self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
     ) -> Playlist:
-        playlist_href = self._get_playlist_href(playlist_id)
-        async with self._get_with_retry(playlist_href) as response:
-            data = await response.json(content_type=None)
-
-        if not isinstance(data, dict):
-            raise FailedToGetPlaylistError(f"Invalid response: {data}")
-        if not data:
-            raise FailedToGetPlaylistError(f"Empty response: {data}")
-
-        error = data.get("error")
-        if error:
-            # status 401 = invalid access token
-            # status 403 = private playlist
-            # status 404 = invalid playlist
-            raise FailedToGetPlaylistError(f"Failed to get playlist: {error}")
+        href = self._get_playlist_href(playlist_id)
+        data = await self._get_with_retry(href)
 
         # If the playlist has an alias, use it
         if playlist_id in aliases:
             name = aliases[playlist_id]
         else:
-            name = data["name"]
+            name = data.get("name")
 
-        # Make sure the name is nonemty and contains readable characters
+        if not isinstance(name, str):
+            raise InvalidDataError(f"Invalid playlist name: {name}")
         if (not name) or name.isspace():
-            raise FailedToGetPlaylistError(f"Empty playlist name: {playlist_id}")
+            raise InvalidDataError(f"Empty playlist name: {repr(name)}")
 
-        description = data["description"]
-        url = self._get_url(data["external_urls"])
+        description = data.get("description")
+        if not isinstance(description, str):
+            raise InvalidDataError(f"Invalid description: {description}")
+
+        playlist_urls = data.get("external_urls")
+        if not isinstance(playlist_urls, dict):
+            raise InvalidDataError(f"Invalid playlist URLs: {playlist_urls}")
+        playlist_url = self._get_url(playlist_urls)
+        if not isinstance(playlist_url, str):
+            raise InvalidDataError(f"Invalid playlist URL: {playlist_url}")
+
         tracks = await self._get_tracks(playlist_id)
-        snapshot_id = data["snapshot_id"]
-        num_followers = data["followers"]["total"] or 0
 
-        owner_url = self._get_url(data["owner"]["external_urls"])
-        owner_name = data["owner"]["display_name"]
+        snapshot_id = data.get("snapshot_id")
+        if not isinstance(snapshot_id, str):
+            raise InvalidDataError(f"Invalid snapshot ID: {snapshot_id}")
+
+        followers = data.get("followers")
+        if not isinstance(followers, dict):
+            raise InvalidDataError(f"Invalid followers: {followers}")
+        num_followers = followers.get("total")
+        if not isinstance(num_followers, int):
+            raise InvalidDataError(f"Invalid num followers: {num_followers}")
+
+        owner = data.get("owner")
+        if not isinstance(owner, dict):
+            raise InvalidDataError(f"Invalid owner: {owner}")
+        owner_urls = owner.get("external_urls")
+        if not isinstance(owner_urls, dict):
+            raise InvalidDataError(f"Invalid owner URLs: {owner_urls}")
+        owner_url = self._get_url(owner_urls)
+        if not isinstance(owner_url, str):
+            raise InvalidDataError(f"Invalid owner URL: {owner_url}")
+        owner_name = owner.get("display_name")
+        if not isinstance(owner_name, str):
+            raise InvalidDataError(f"Invalid owner name: {owner_name}")
         if not owner_name:
             logger.warning(f"Empty owner name: {owner_url}")
 
         return Playlist(
-            url=url,
+            url=playlist_url,
             name=name,
             description=description,
             tracks=tracks,
@@ -151,54 +175,87 @@ class Spotify:
 
     async def _get_tracks(self, playlist_id: PlaylistID) -> List[Track]:
         tracks = []
-        tracks_href = self._get_tracks_href(playlist_id)
+        href = self._get_tracks_href(playlist_id)
 
-        while tracks_href:
-            async with self._get_with_retry(tracks_href) as response:
-                data = await response.json(content_type=None)
+        while href:
+            data = await self._get_with_retry(href)
 
-            if not isinstance(data, dict):
-                raise FailedToGetTracksError(f"Invalid response: {data}")
-            if not data:
-                raise FailedToGetTracksError(f"Empty response: {data}")
+            items = data.get("items")
+            if not isinstance(items, list):
+                raise InvalidDataError(f"Invalid items: {items}")
 
-            error = data.get("error")
-            if error:
-                raise FailedToGetTracksError(f"Failed to get tracks: {error}")
+            for item in items:
+                if not isinstance(item, dict):
+                    raise InvalidDataError(f"Invalid item: {item}")
 
-            for item in data["items"]:
-                track = item["track"]
+                track = item.get("track")
+                if not isinstance(track, dict):
+                    raise InvalidDataError(f"Invalid track: {track}")
                 if not track:
                     continue
 
-                track_url = self._get_url(track["external_urls"])
+                track_urls = track.get("external_urls")
+                if not isinstance(track_urls, dict):
+                    raise InvalidDataError(f"Invalid track URLs: {track_urls}")
+                track_url = self._get_url(track_urls)
+                if not isinstance(track_url, str):
+                    raise InvalidDataError(f"Invalid track URL: {track_url}")
                 if not track_url:
                     logger.warning("Skipping track with empty URL")
                     continue
 
-                track_name = track["name"]
+                track_name = track.get("name")
+                if not isinstance(track_name, str):
+                    raise InvalidDataError(f"Invalid track name: {track_name}")
                 if not track_name:
                     logger.warning(f"Empty track name: {track_url}")
 
-                album_url = self._get_url(track["album"]["external_urls"])
-                album_name = track["album"]["name"]
+                album = track.get("album")
+                if not isinstance(album, dict):
+                    raise InvalidDataError(f"Invalid album: {album}")
+                album_urls = album.get("external_urls")
+                if not isinstance(album_urls, dict):
+                    raise InvalidDataError(f"Invalid album URLs: {album_urls}")
+                album_url = self._get_url(album_urls)
+                if not isinstance(album_url, str):
+                    raise InvalidDataError(f"Invalid album URL: {album_url}")
+                album_name = album.get("name")
+                if not isinstance(album_name, str):
+                    raise InvalidDataError(f"Invalid album name: {album_name}")
                 if not album_name:
                     logger.warning(f"Empty album name: {album_url}")
 
-                artists = []
-                for artist in track["artists"]:
-                    artist_url = self._get_url(artist["external_urls"])
-                    artist_name = artist["name"]
+                artists = track.get("artists")
+                if not isinstance(artists, list):
+                    raise InvalidDataError(f"Invalid artists: {artists}")
+
+                artist_objs = []
+                for artist in artists:
+                    if not isinstance(artist, dict):
+                        raise InvalidDataError(f"Invalid artist: {artist}")
+                    artist_urls = artist.get("external_urls")
+                    if not isinstance(artist_urls, dict):
+                        raise InvalidDataError(f"Invalid artist URLs: {artist_urls}")
+                    artist_url = self._get_url(artist_urls)
+                    if not isinstance(artist_url, str):
+                        raise InvalidDataError(f"Invalid artist URL: {artist_url}")
+                    artist_name = artist.get("name")
+                    if not isinstance(artist_name, str):
+                        raise InvalidDataError(f"Invalid artist name: {artist_name}")
                     if not artist_name:
                         logger.warning(f"Empty artist name: {artist_url}")
-                    artists.append(Artist(url=artist_url, name=artist_name))
+                    artist_objs.append(Artist(url=artist_url, name=artist_name))
 
-                if not artists:
+                if not artist_objs:
                     logger.warning(f"Empty track artists: {track_url}")
 
-                duration_ms = track["duration_ms"]
+                duration_ms = track.get("duration_ms")
+                if not isinstance(duration_ms, int):
+                    raise InvalidDataError(f"Invalid duration: {duration_ms}")
 
-                added_at_string = item["added_at"]
+                added_at_string = item.get("added_at")
+                if not isinstance(added_at_string, (str, type(None))):
+                    raise InvalidDataError(f"Invalid added at: {added_at_string}")
                 if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
                     added_at = datetime.datetime.strptime(
                         added_at_string, "%Y-%m-%dT%H:%M:%SZ"
@@ -214,13 +271,13 @@ class Spotify:
                             url=album_url,
                             name=album_name,
                         ),
-                        artists=artists,
+                        artists=artist_objs,
                         duration_ms=duration_ms,
                         added_at=added_at,
                     )
                 )
 
-            tracks_href = data["next"]
+            href = data.get("next")
 
         return tracks
 
@@ -259,19 +316,19 @@ class Spotify:
                 try:
                     data = await response.json()
                 except Exception as e:
-                    raise FailedToGetAccessTokenError from e
+                    raise InvalidDataError from e
 
         error = data.get("error")
         if error:
-            raise FailedToGetAccessTokenError(f"Failed to get access token: {error}")
+            raise InvalidDataError(f"Failed to get access token: {error}")
 
         access_token = data.get("access_token")
         if not access_token:
-            raise FailedToGetAccessTokenError(f"Invalid access token: {access_token}")
+            raise InvalidDataError(f"Invalid access token: {access_token}")
 
         token_type = data.get("token_type")
         if token_type != "Bearer":
-            raise FailedToGetAccessTokenError(f"Invalid token type: {token_type}")
+            raise InvalidDataError(f"Invalid token type: {token_type}")
 
         return access_token
 

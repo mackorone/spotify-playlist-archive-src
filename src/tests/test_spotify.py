@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import datetime
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
-from spotify import (
-    FailedToGetAccessTokenError,
-    FailedToGetPlaylistError,
-    FailedToGetTracksError,
-    RetryBudgetExceededError,
-    Spotify,
-)
+from spotify import InvalidDataError, RetryBudgetExceededError, Spotify
 
 
 class MockSession(AsyncMock):
@@ -59,6 +54,54 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
         )
 
 
+class TestGetWithRetry(SpotifyTestCase):
+    async def test_invalid_data(self) -> None:
+        for data in ["", {}, {"error": ""}]:
+            async with self.mock_session.get.return_value as mock_response:
+                mock_response.json.return_value = data
+            spotify = Spotify("token")
+            with self.assertRaises(InvalidDataError):
+                await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_server_unavailable(self, mock_logger: Mock) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.status = 500
+        spotify = Spotify("token")
+        with self.assertRaises(RetryBudgetExceededError):
+            await spotify._get_with_retry("href")
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_transient_server_error(self, mock_logger: Mock) -> None:
+        mock_responses = [AsyncMock(), AsyncMock()]
+        async with mock_responses[0] as mock_response:
+            mock_response.status = 500
+        async with mock_responses[1] as mock_response:
+            mock_response.json.return_value = {"items": [], "next": ""}
+        self.mock_session.get.side_effect = mock_responses
+        spotify = Spotify("token")
+        await spotify._get_with_retry("href")
+        self.assertEqual(self.mock_session.get.call_count, 2)
+        self.mock_sleep.assert_called_once_with(1)
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_rate_limited(self, mock_logger: Mock) -> None:
+        mock_responses = [AsyncMock(), AsyncMock()]
+        async with mock_responses[0] as mock_response:
+            mock_response.status = 429
+            mock_response.headers = {"Retry-After": 4.2}
+        async with mock_responses[1] as mock_response:
+            mock_response.json.return_value = {"items": [], "next": ""}
+        self.mock_session.get.side_effect = mock_responses
+        spotify = Spotify("token")
+        await spotify._get_with_retry("href")
+        self.assertEqual(self.mock_session.get.call_count, 2)
+        self.mock_sleep.assert_called_once_with(5)
+
+
 class TestShutdown(SpotifyTestCase):
     async def test_success(self) -> None:
         spotify = Spotify("token")
@@ -67,42 +110,130 @@ class TestShutdown(SpotifyTestCase):
         self.mock_sleep.assert_called_once_with(0)
 
 
-class TestGetPlaylist(SpotifyTestCase):
+class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
     async def test_invalid_data(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = ""
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetPlaylistError):
-            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
-
-    async def test_empty_data(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetPlaylistError):
-            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
-
-    async def test_error(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {"error": "whoops"}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetPlaylistError):
-            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
-
-    async def test_empty_name(self) -> None:
-        for alias in ["", " ", "\n"]:
+        for data in [
+            {},
+            {"items": None},
+            {"items": [None]},
+            {"items": [{}]},
+            {"items": [{"id": None}]},
+        ]:
             async with self.mock_session.get.return_value as mock_response:
-                mock_response.json.return_value = {"name": alias}
+                mock_response.json.return_value = data
             spotify = Spotify("token")
-            with self.assertRaises(FailedToGetPlaylistError):
-                await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+            with self.assertRaises(InvalidDataError):
+                await spotify.get_spotify_user_playlist_ids()
+
+    async def test_success(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.side_effect = [
+                {
+                    "items": [{"id": "a"}, {"id": "b"}],
+                    "next": "next_url",
+                },
+                {
+                    "items": [{"id": "c"}, {"id": "d"}],
+                    "next": "",
+                },
+            ]
+        spotify = Spotify("token")
+        playlist_ids = await spotify.get_spotify_user_playlist_ids()
+        self.assertEqual(playlist_ids, {PlaylistID(x) for x in "abcd"})
+
+
+class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
+    async def test_invalid_data(self) -> None:
+        for data in [
+            {},
+            {"playlists": None},
+            {"playlists": {}},
+            {"playlists": {"items": None}},
+            {"playlists": {"items": [None]}},
+            {"playlists": {"items": [{}]}},
+            {"playlists": {"items": [{"id": None}]}},
+        ]:
+            async with self.mock_session.get.return_value as mock_response:
+                mock_response.json.return_value = data
+            spotify = Spotify("token")
+            with self.assertRaises(InvalidDataError):
+                await spotify.get_featured_playlist_ids()
+
+    async def test_success(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.side_effect = [
+                {
+                    "playlists": {
+                        "items": [{"id": "a"}, {"id": "b"}],
+                    },
+                    "next": "next_url",
+                },
+                {
+                    "playlists": {
+                        "items": [{"id": "c"}, {"id": "d"}],
+                    },
+                    "next": "",
+                },
+            ]
+        spotify = Spotify("token")
+        playlist_ids = await spotify.get_featured_playlist_ids()
+        self.assertEqual(playlist_ids, {PlaylistID(x) for x in "abcd"})
+
+
+class TestGetPlaylist(SpotifyTestCase):
+    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    async def test_invalid_data(self, mock_get_tracks: Mock) -> None:
+        mock_get_tracks.return_value = []
+        valid_data = {
+            "name": "playlist_name",
+            "description": "playlist_description",
+            "external_urls": {
+                "spotify": "playlist_url",
+            },
+            "snapshot_id": "playlist_snapshot_id",
+            "followers": {
+                "total": 999,
+            },
+            "owner": {
+                "display_name": "owner_name",
+                "external_urls": {
+                    "spotify": "owner_url",
+                },
+            },
+        }
+        overrides = {
+            "name": ["", " ", "\n", None, 1],
+            "description": [None, 1],
+            "external_urls": [None, 1],
+            "external_urls.spotify": [1],
+            "snapshot_id": [None, 1],
+            "followers": [None, 1],
+            "followers.total": [None, "a"],
+            "owner": [None, 1],
+            "owner.display_name": [None, 1],
+            "owner.external_urls": [None, 1],
+            "owner.external_urls.spotify": [1],
+        }
+        for key, values in overrides.items():
+            for value in values:
+                data = copy.deepcopy(valid_data)
+                ref = data
+                parts = [(int(x) if x.isdigit() else x) for x in key.split(".")]
+                for name in parts[:-1]:
+                    ref = ref[name]
+                ref[parts[-1]] = value
+                async with self.mock_session.get.return_value as mock_response:
+                    mock_response.json.return_value = data
+                spotify = Spotify("token")
+                with self.assertRaises(InvalidDataError):
+                    await spotify.get_playlist(PlaylistID("abc123"), aliases={})
 
     async def test_empty_alias(self) -> None:
         for alias in ["", " ", "\n"]:
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = {"name": "foo"}
             spotify = Spotify("token")
-            with self.assertRaises(FailedToGetPlaylistError):
+            with self.assertRaises(InvalidDataError):
                 await spotify.get_playlist(
                     PlaylistID("abc123"), aliases={PlaylistID("abc123"): alias}
                 )
@@ -165,25 +296,67 @@ class TestGetPlaylist(SpotifyTestCase):
 
 class TestGetTracks(SpotifyTestCase):
     async def test_invalid_data(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = ""
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetTracksError):
-            await spotify._get_tracks(PlaylistID("abc123"))
-
-    async def test_empty_data(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetTracksError):
-            await spotify._get_tracks(PlaylistID("abc123"))
-
-    async def test_error(self) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.json.return_value = {"error": "whoops"}
-        spotify = Spotify("token")
-        with self.assertRaises(FailedToGetTracksError):
-            await spotify._get_tracks(PlaylistID("abc123"))
+        valid_data = {
+            "items": [
+                {
+                    "track": {
+                        "duration_ms": 456,
+                        "name": "track_name",
+                        "album": {
+                            "name": "album_name",
+                            "external_urls": {
+                                "spotify": "album_url",
+                            },
+                        },
+                        "artists": [
+                            {
+                                "name": "artist_name",
+                                "external_urls": {
+                                    "spotify": "artist_url",
+                                },
+                            },
+                        ],
+                        "external_urls": {
+                            "spotify": "track_url",
+                        },
+                    },
+                    "added_at": "2021-12-25T00:00:00Z",
+                },
+            ],
+            "next": "",
+        }
+        overrides = {
+            "items": [None, 1],
+            "items.0": [None, 1],
+            "items.0.track": [None, 1],
+            "items.0.track.external_urls": [None, 1],
+            "items.0.track.external_urls.spotify": [1],
+            "items.0.track.name": [None, 1],
+            "items.0.track.album": [None, 1],
+            "items.0.track.album.external_urls": [None, 1],
+            "items.0.track.album.external_urls.spotify": [1],
+            "items.0.track.album.name": [None, 1],
+            "items.0.track.artists": [None, 1],
+            "items.0.track.artists.0": [None, 1],
+            "items.0.track.artists.0.external_urls": [None, 1],
+            "items.0.track.artists.0.external_urls.spotify": [1],
+            "items.0.track.artists.0.name": [None, 1],
+            "items.0.track.duration_ms": [None, "a"],
+            "items.0.added_at": [1],
+        }
+        for key, values in overrides.items():
+            for value in values:
+                data = copy.deepcopy(valid_data)
+                ref = data
+                parts = [(int(x) if x.isdigit() else x) for x in key.split(".")]
+                for name in parts[:-1]:
+                    ref = ref[name]  # pyre-fixme[6]
+                ref[parts[-1]] = value  # pyre-fixme[16]
+                async with self.mock_session.get.return_value as mock_response:
+                    mock_response.json.return_value = data
+                spotify = Spotify("token")
+                with self.assertRaises(InvalidDataError):
+                    await spotify._get_tracks(PlaylistID("abc123"))
 
     async def test_empty_playlist(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
@@ -343,50 +516,12 @@ class TestGetTracks(SpotifyTestCase):
             ]
         )
 
-    # Patch the logger to suppress log spew
-    @patch("spotify.logger")
-    async def test_server_unavailable(self, mock_logger: Mock) -> None:
-        async with self.mock_session.get.return_value as mock_response:
-            mock_response.status = 500
-        spotify = Spotify("token")
-        with self.assertRaises(RetryBudgetExceededError):
-            await spotify._get_tracks(PlaylistID("abc123"))
-
-    # Patch the logger to suppress log spew
-    @patch("spotify.logger")
-    async def test_transient_server_error(self, mock_logger: Mock) -> None:
-        mock_responses = [AsyncMock(), AsyncMock()]
-        async with mock_responses[0] as mock_response:
-            mock_response.status = 500
-        async with mock_responses[1] as mock_response:
-            mock_response.json.return_value = {"items": [], "next": ""}
-        self.mock_session.get.side_effect = mock_responses
-        spotify = Spotify("token")
-        await spotify._get_tracks(PlaylistID("abc123"))
-        self.assertEqual(self.mock_session.get.call_count, 2)
-        self.mock_sleep.assert_called_once_with(1)
-
-    # Patch the logger to suppress log spew
-    @patch("spotify.logger")
-    async def test_rate_limited(self, mock_logger: Mock) -> None:
-        mock_responses = [AsyncMock(), AsyncMock()]
-        async with mock_responses[0] as mock_response:
-            mock_response.status = 429
-            mock_response.headers = {"Retry-After": 4.2}
-        async with mock_responses[1] as mock_response:
-            mock_response.json.return_value = {"items": [], "next": ""}
-        self.mock_session.get.side_effect = mock_responses
-        spotify = Spotify("token")
-        await spotify._get_tracks(PlaylistID("abc123"))
-        self.assertEqual(self.mock_session.get.call_count, 2)
-        self.mock_sleep.assert_called_once_with(5)
-
 
 class TestGetAccessToken(SpotifyTestCase):
     async def test_invalid_json(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
             mock_response.json.side_effect = Exception
-        with self.assertRaises(FailedToGetAccessTokenError):
+        with self.assertRaises(InvalidDataError):
             await Spotify.get_access_token("client_id", "client_secret")
 
     async def test_error(self) -> None:
@@ -396,7 +531,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "token",
                 "token_type": "Bearer",
             }
-        with self.assertRaises(FailedToGetAccessTokenError):
+        with self.assertRaises(InvalidDataError):
             await Spotify.get_access_token("client_id", "client_secret")
 
     async def test_invalid_access_token(self) -> None:
@@ -405,7 +540,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "",
                 "token_type": "Bearer",
             }
-        with self.assertRaises(FailedToGetAccessTokenError):
+        with self.assertRaises(InvalidDataError):
             await Spotify.get_access_token("client_id", "client_secret")
 
     async def test_invalid_token_type(self) -> None:
@@ -414,7 +549,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "token",
                 "token_type": "invalid",
             }
-        with self.assertRaises(FailedToGetAccessTokenError):
+        with self.assertRaises(InvalidDataError):
             await Spotify.get_access_token("client_id", "client_secret")
 
     async def test_success(self) -> None:
