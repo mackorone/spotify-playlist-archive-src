@@ -11,12 +11,19 @@ from file_formatter import Formatter
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist
 from spotify import Spotify
-from url import URL
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 class MalformedAliasError(Exception):
+    pass
+
+
+class DuplicatePlaylistNamesError(Exception):
+    pass
+
+
+class UnexpectedFilesError(Exception):
     pass
 
 
@@ -86,7 +93,6 @@ class FileUpdater:
         cls._fixup_aliases(playlist_ids)
         aliases = cls._get_aliases(playlist_ids)
 
-        readme_lines = []
         playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
         for playlist_id in sorted(playlist_ids):
             plain_path = plain_dir / playlist_id
@@ -100,7 +106,6 @@ class FileUpdater:
             playlist = await spotify.get_playlist(playlist_id, aliases)
             logger.info(f"Playlist name: {playlist.name}")
             playlist_names_to_ids[playlist.name].add(playlist_id)
-            readme_lines.append(f"- [{playlist.name}]({URL.pretty(playlist_id)})")
 
             # Update plain playlist
             prev_content = cls._get_file_content_or_empty_string(plain_path)
@@ -164,7 +169,15 @@ class FileUpdater:
             if len(playlist_ids) > 1
         }
         if duplicate_names:
-            raise Exception(f"Duplicate playlist names: {duplicate_names}")
+            raise DuplicatePlaylistNamesError(
+                f"Duplicate playlist names: {duplicate_names}"
+            )
+
+        # Reverse the mapping for later use
+        playlist_ids_to_names = {
+            list(playlist_ids)[0]: name
+            for name, playlist_ids in playlist_names_to_ids.items()
+        }
 
         # Check for unexpected files in playlist directories
         unexpected_files: Set[pathlib.Path] = set()
@@ -175,24 +188,21 @@ class FileUpdater:
         ]:
             for path in directory.iterdir():
                 if not any(
-                    cls._remove_suffix(path.name, suffix) in playlist_ids
+                    path.name.endswith(suffix)
+                    and cls._remove_suffix(path.name, suffix) in playlist_ids
                     for suffix in suffixes
                 ):
                     unexpected_files.add(path)
         if unexpected_files:
-            raise Exception(f"Unexpected files: {unexpected_files}")
+            raise UnexpectedFilesError(f"Unexpected files: {unexpected_files}")
 
         # Lastly, update README.md
         if update_readme:
-            readme = open("README.md").read().splitlines()
-            index = readme.index("## Playlists")
-            lines = (
-                readme[: index + 1]
-                + [""]
-                + sorted(readme_lines, key=lambda line: line.lower())
-            )
-            with open("README.md", "w") as f:
-                f.write("\n".join(lines) + "\n")
+            readme_path = playlists_dir.parent / "README.md"
+            with open(readme_path, "r") as f:
+                prev_content = f.read()
+            content = Formatter.readme(prev_content, playlist_ids_to_names)
+            cls._write_to_file_if_content_changed(prev_content, content, readme_path)
 
     @classmethod
     async def _auto_register(cls, registry_dir: pathlib.Path, spotify: Spotify) -> None:
@@ -231,16 +241,18 @@ class FileUpdater:
             if len(lines) != 1:
                 raise MalformedAliasError(f"Malformed alias: {playlist_id}")
             alias = lines[0]
-            if (not alias) or alias.isspace():
+            assert alias, alias
+            if alias.isspace():
                 raise MalformedAliasError(f"Malformed alias: {playlist_id}")
             aliases[playlist_id] = alias
         return aliases
 
     @classmethod
     def _remove_suffix(cls, string: str, suffix: str) -> str:
-        if suffix and string.endswith(suffix):
-            return string[: -len(suffix)]
-        return string
+        if not suffix:
+            return string
+        assert string.endswith(suffix)
+        return string[: -len(suffix)]
 
     @classmethod
     def _get_file_content_or_empty_string(cls, path: pathlib.Path) -> str:
