@@ -129,7 +129,7 @@ class Spotify:
         url = self._get_url(data["external_urls"])
         tracks = await self._get_tracks(playlist_id)
         snapshot_id = data["snapshot_id"]
-        num_followers = data["followers"]["total"]
+        num_followers = data["followers"]["total"] or 0
 
         owner_url = self._get_url(data["owner"]["external_urls"])
         owner_name = data["owner"]["display_name"]
