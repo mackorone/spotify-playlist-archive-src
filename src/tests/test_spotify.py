@@ -328,7 +328,7 @@ class TestGetTracks(SpotifyTestCase):
         overrides = {
             "items": [None, 1],
             "items.0": [None, 1],
-            "items.0.track": [None, 1],
+            "items.0.track": [1],
             "items.0.track.external_urls": [None, 1],
             "items.0.track.external_urls.spotify": [1],
             "items.0.track.name": [None, 1],

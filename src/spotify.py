@@ -189,7 +189,7 @@ class Spotify:
                     raise InvalidDataError(f"Invalid item: {item}")
 
                 track = item.get("track")
-                if not isinstance(track, dict):
+                if not isinstance(track, (dict, type(None))):
                     raise InvalidDataError(f"Invalid track: {track}")
                 if not track:
                     continue
