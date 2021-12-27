@@ -208,7 +208,7 @@ class TestGetPlaylist(SpotifyTestCase):
             "external_urls.spotify": [1],
             "snapshot_id": [None, 1],
             "followers": [None, 1],
-            "followers.total": [None, "a"],
+            "followers.total": ["a"],
             "owner": [None, 1],
             "owner.display_name": [None, 1],
             "owner.external_urls": [None, 1],

@@ -67,13 +67,17 @@ class Formatter:
             is_cumulative=False,
         )
         num_likes = playlist.num_followers
+        if num_likes is None:
+            num_likes_string = "??? likes"
+        else:
+            num_likes_string = f"{num_likes:,} like" + ("s" if num_likes > 1 else "")
         num_songs = len(playlist.tracks)
         lines += [
             "{} - {} - {} - {}".format(
                 cls._link(
                     cls._escape_markdown(playlist.owner.name), playlist.owner.url
                 ),
-                f"{num_likes:,} like" + ("s" if num_likes > 1 else ""),
+                num_likes_string,
                 f"{num_songs:,} song" + ("s" if num_songs > 1 else ""),
                 cls._format_duration_english(
                     sum(track.duration_ms for track in playlist.tracks)

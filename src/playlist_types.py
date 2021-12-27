@@ -48,7 +48,7 @@ class Playlist:
     description: str
     tracks: Sequence[Track]
     snapshot_id: str
-    num_followers: int
+    num_followers: Optional[int]
     owner: Owner
 
     def to_json(self) -> str:

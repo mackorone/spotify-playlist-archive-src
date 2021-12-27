@@ -142,8 +142,10 @@ class Spotify:
         if not isinstance(followers, dict):
             raise InvalidDataError(f"Invalid followers: {followers}")
         num_followers = followers.get("total")
-        if not isinstance(num_followers, int):
+        if not isinstance(num_followers, (int, type(None))):
             raise InvalidDataError(f"Invalid num followers: {num_followers}")
+        if num_followers is None:
+            logger.warning(f"Num followers is missing: {playlist_id}")
 
         owner = data.get("owner")
         if not isinstance(owner, dict):
