@@ -239,6 +239,29 @@ class TestGetPlaylist(SpotifyTestCase):
                 )
 
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    async def test_nonempty_alias(self, mock_get_tracks: AsyncMock) -> None:
+        mock_get_tracks.return_value = []
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {
+                "name": "playlist_name",
+                "description": "",
+                "external_urls": {},
+                "snapshot_id": "",
+                "followers": {
+                    "total": 0,
+                },
+                "owner": {
+                    "display_name": "owner_name",
+                    "external_urls": {},
+                },
+            }
+            spotify = Spotify("token")
+            playlist = await spotify.get_playlist(
+                PlaylistID("abc123"), aliases={PlaylistID("abc123"): "alias"}
+            )
+            self.assertEqual(playlist.name, "alias")
+
+    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
     async def test_success(self, mock_get_tracks: AsyncMock) -> None:
         track = Track(
             url="track_url",

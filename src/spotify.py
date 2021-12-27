@@ -4,7 +4,7 @@ import asyncio
 import base64
 import datetime
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
 import aiohttp
 
@@ -13,6 +13,9 @@ from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+T = TypeVar("T")
 
 
 class InvalidDataError(Exception):
@@ -82,9 +85,7 @@ class Spotify:
         href = "https://api.spotify.com/v1/browse/featured-playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
-            playlists = data.get("playlists")
-            if not isinstance(playlists, dict):
-                raise InvalidDataError(f"Invalid playlists: {playlists}")
+            playlists = self._get_required(data, "playlists", dict)
             playlist_ids |= self._extract_playlist_ids(playlists)
             href = data.get("next")
         return playlist_ids
@@ -92,15 +93,11 @@ class Spotify:
     @classmethod
     def _extract_playlist_ids(cls, data: Dict[str, Any]) -> Set[PlaylistID]:
         playlist_ids: Set[PlaylistID] = set()
-        items = data.get("items")
-        if not isinstance(items, list):
-            raise InvalidDataError(f"Invalid items: {items}")
+        items = cls._get_required(data, "items", list)
         for item in items:
             if not isinstance(item, dict):
                 raise InvalidDataError(f"Invalid item: {item}")
-            playlist_id = item.get("id")
-            if not isinstance(playlist_id, str):
-                raise InvalidDataError(f"Invalid playlist ID: {playlist_id}")
+            playlist_id = cls._get_required(item, "id", str)
             playlist_ids.add(PlaylistID(playlist_id))
         return playlist_ids
 
@@ -110,65 +107,39 @@ class Spotify:
         href = self._get_playlist_href(playlist_id)
         data = await self._get_with_retry(href)
 
-        # If the playlist has an alias, use it
+        playlist_urls = self._get_required(data, "external_urls", dict)
+        playlist_url = self._get_optional(playlist_urls, "spotify", str)
+        if not playlist_url:
+            playlist_url = ""
+
         if playlist_id in aliases:
             name = aliases[playlist_id]
         else:
-            name = data.get("name")
-
-        if not isinstance(name, str):
-            raise InvalidDataError(f"Invalid playlist name: {name}")
-        if (not name) or name.isspace():
+            name = self._get_required(data, "name", str)
+        if not name.strip():
             raise InvalidDataError(f"Empty playlist name: {repr(name)}")
 
-        description = data.get("description")
-        if not isinstance(description, str):
-            raise InvalidDataError(f"Invalid description: {description}")
+        followers = self._get_required(data, "followers", dict)
+        followers_total = self._get_optional(followers, "total", int)
+        if followers_total is None:
+            logger.warning(f"Null followers total: {playlist_id}")
 
-        playlist_urls = data.get("external_urls")
-        if not isinstance(playlist_urls, dict):
-            raise InvalidDataError(f"Invalid playlist URLs: {playlist_urls}")
-        playlist_url = self._get_url(playlist_urls)
-        if not isinstance(playlist_url, str):
-            raise InvalidDataError(f"Invalid playlist URL: {playlist_url}")
-
-        tracks = await self._get_tracks(playlist_id)
-
-        snapshot_id = data.get("snapshot_id")
-        if not isinstance(snapshot_id, str):
-            raise InvalidDataError(f"Invalid snapshot ID: {snapshot_id}")
-
-        followers = data.get("followers")
-        if not isinstance(followers, dict):
-            raise InvalidDataError(f"Invalid followers: {followers}")
-        num_followers = followers.get("total")
-        if not isinstance(num_followers, (int, type(None))):
-            raise InvalidDataError(f"Invalid num followers: {num_followers}")
-        if num_followers is None:
-            logger.warning(f"Num followers is missing: {playlist_id}")
-
-        owner = data.get("owner")
-        if not isinstance(owner, dict):
-            raise InvalidDataError(f"Invalid owner: {owner}")
-        owner_urls = owner.get("external_urls")
-        if not isinstance(owner_urls, dict):
-            raise InvalidDataError(f"Invalid owner URLs: {owner_urls}")
-        owner_url = self._get_url(owner_urls)
-        if not isinstance(owner_url, str):
-            raise InvalidDataError(f"Invalid owner URL: {owner_url}")
-        owner_name = owner.get("display_name")
-        if not isinstance(owner_name, str):
-            raise InvalidDataError(f"Invalid owner name: {owner_name}")
+        owner = self._get_required(data, "owner", dict)
+        owner_urls = self._get_required(owner, "external_urls", dict)
+        owner_url = self._get_optional(owner_urls, "spotify", str)
+        if not owner_url:
+            owner_url = ""
+        owner_name = self._get_required(owner, "display_name", str)
         if not owner_name:
             logger.warning(f"Empty owner name: {owner_url}")
 
         return Playlist(
             url=playlist_url,
             name=name,
-            description=description,
-            tracks=tracks,
-            snapshot_id=snapshot_id,
-            num_followers=num_followers,
+            description=self._get_required(data, "description", str),
+            tracks=await self._get_tracks(playlist_id),
+            snapshot_id=self._get_required(data, "snapshot_id", str),
+            num_followers=followers_total,
             owner=Owner(
                 url=owner_url,
                 name=owner_name,
@@ -181,69 +152,42 @@ class Spotify:
 
         while href:
             data = await self._get_with_retry(href)
-
-            items = data.get("items")
-            if not isinstance(items, list):
-                raise InvalidDataError(f"Invalid items: {items}")
-
+            items = self._get_required(data, "items", list)
             for item in items:
                 if not isinstance(item, dict):
                     raise InvalidDataError(f"Invalid item: {item}")
 
-                track = item.get("track")
-                if not isinstance(track, (dict, type(None))):
-                    raise InvalidDataError(f"Invalid track: {track}")
+                track = self._get_optional(item, "track", dict)
                 if not track:
                     continue
-
-                track_urls = track.get("external_urls")
-                if not isinstance(track_urls, dict):
-                    raise InvalidDataError(f"Invalid track URLs: {track_urls}")
-                track_url = self._get_url(track_urls)
-                if not isinstance(track_url, str):
-                    raise InvalidDataError(f"Invalid track URL: {track_url}")
+                track_urls = self._get_required(track, "external_urls", dict)
+                track_url = self._get_optional(track_urls, "spotify", str)
                 if not track_url:
                     logger.warning("Skipping track with empty URL")
                     continue
-
-                track_name = track.get("name")
-                if not isinstance(track_name, str):
-                    raise InvalidDataError(f"Invalid track name: {track_name}")
+                track_name = self._get_required(track, "name", str)
                 if not track_name:
                     logger.warning(f"Empty track name: {track_url}")
 
-                album = track.get("album")
-                if not isinstance(album, dict):
-                    raise InvalidDataError(f"Invalid album: {album}")
-                album_urls = album.get("external_urls")
-                if not isinstance(album_urls, dict):
-                    raise InvalidDataError(f"Invalid album URLs: {album_urls}")
-                album_url = self._get_url(album_urls)
-                if not isinstance(album_url, str):
-                    raise InvalidDataError(f"Invalid album URL: {album_url}")
-                album_name = album.get("name")
-                if not isinstance(album_name, str):
-                    raise InvalidDataError(f"Invalid album name: {album_name}")
+                album = self._get_required(track, "album", dict)
+                album_urls = self._get_required(album, "external_urls", dict)
+                album_url = self._get_optional(album_urls, "spotify", str)
+                if not album_url:
+                    album_url = ""
+                album_name = self._get_required(album, "name", str)
                 if not album_name:
                     logger.warning(f"Empty album name: {album_url}")
 
-                artists = track.get("artists")
-                if not isinstance(artists, list):
-                    raise InvalidDataError(f"Invalid artists: {artists}")
-
+                artists = self._get_required(track, "artists", list)
                 artist_objs = []
                 for artist in artists:
                     if not isinstance(artist, dict):
                         raise InvalidDataError(f"Invalid artist: {artist}")
-                    artist_urls = artist.get("external_urls")
-                    if not isinstance(artist_urls, dict):
-                        raise InvalidDataError(f"Invalid artist URLs: {artist_urls}")
-                    artist_url = self._get_url(artist_urls)
-                    if not isinstance(artist_url, str):
-                        raise InvalidDataError(f"Invalid artist URL: {artist_url}")
-                    artist_name = artist.get("name")
-                    if not isinstance(artist_name, str):
-                        raise InvalidDataError(f"Invalid artist name: {artist_name}")
+                    artist_urls = self._get_required(artist, "external_urls", dict)
+                    artist_url = self._get_optional(artist_urls, "spotify", str)
+                    if not artist_url:
+                        artist_url = ""
+                    artist_name = self._get_required(artist, "name", str)
                     if not artist_name:
                         logger.warning(f"Empty artist name: {artist_url}")
                     artist_objs.append(Artist(url=artist_url, name=artist_name))
@@ -251,13 +195,9 @@ class Spotify:
                 if not artist_objs:
                     logger.warning(f"Empty track artists: {track_url}")
 
-                duration_ms = track.get("duration_ms")
-                if not isinstance(duration_ms, int):
-                    raise InvalidDataError(f"Invalid duration: {duration_ms}")
+                duration_ms = self._get_required(track, "duration_ms", int)
 
-                added_at_string = item.get("added_at")
-                if not isinstance(added_at_string, (str, type(None))):
-                    raise InvalidDataError(f"Invalid added at: {added_at_string}")
+                added_at_string = self._get_optional(item, "added_at", str)
                 if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
                     added_at = datetime.datetime.strptime(
                         added_at_string, "%Y-%m-%dT%H:%M:%SZ"
@@ -284,8 +224,28 @@ class Spotify:
         return tracks
 
     @classmethod
-    def _get_url(cls, external_urls: Dict[str, str]) -> str:
-        return external_urls.get("spotify") or ""
+    def _get_required(
+        cls,
+        dict_: Dict[str, Any],
+        key: str,
+        type_: Type[T],
+    ) -> T:
+        value = dict_.get(key)
+        if not isinstance(value, type_):
+            raise InvalidDataError(f"Invalid {key}: {value}")
+        return value
+
+    @classmethod
+    def _get_optional(
+        cls,
+        dict_: Dict[str, Any],
+        key: str,
+        type_: Type[T],
+    ) -> Optional[T]:
+        value = dict_.get(key)
+        if not isinstance(value, (type_, type(None))):
+            raise InvalidDataError(f"Invalid {key}: {value}")
+        return value
 
     @classmethod
     def _get_playlist_href(cls, playlist_id: PlaylistID) -> str:
