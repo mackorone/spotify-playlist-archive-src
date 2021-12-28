@@ -28,7 +28,7 @@ class RetryBudgetExceededError(Exception):
 
 class Spotify:
 
-    BASE_URL = "https://api.spotify.com/v1/playlists/"
+    BASE_URL = "https://api.spotify.com/v1/"
 
     def __init__(self, access_token: str) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -72,34 +72,56 @@ class Spotify:
     async def get_spotify_user_playlist_ids(self) -> Set[PlaylistID]:
         logger.info("Fetching @spotify playlist IDs")
         playlist_ids: Set[PlaylistID] = set()
-        href = "https://api.spotify.com/v1/users/spotify/playlists?limit=50"
+        href = self.BASE_URL + "users/spotify/playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
-            playlist_ids |= self._extract_playlist_ids(data)
+            playlist_ids |= {PlaylistID(x) for x in self._extract_ids(data)}
             href = data.get("next")
         return playlist_ids
 
     async def get_featured_playlist_ids(self) -> Set[PlaylistID]:
         logger.info("Fetching featured playlist IDs")
         playlist_ids: Set[PlaylistID] = set()
-        href = "https://api.spotify.com/v1/browse/featured-playlists?limit=50"
+        href = self.BASE_URL + "browse/featured-playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
             playlists = self._get_required(data, "playlists", dict)
-            playlist_ids |= self._extract_playlist_ids(playlists)
-            href = data.get("next")
+            playlist_ids |= {PlaylistID(x) for x in self._extract_ids(playlists)}
+            href = playlists.get("next")
+        return playlist_ids
+
+    async def get_category_playlist_ids(self) -> Set[PlaylistID]:
+        logger.info("Fetching category playlist IDs")
+        playlist_ids: Set[PlaylistID] = set()
+        category_ids: Set[str] = set()
+        href = self.BASE_URL + "browse/categories?limit=50"
+        while href:
+            data = await self._get_with_retry(href)
+            categories = self._get_required(data, "categories", dict)
+            category_ids |= self._extract_ids(categories)
+            href = categories.get("next")
+        for category in category_ids:
+            href = self.BASE_URL + f"browse/categories/{category}/playlists?limit=50"
+            while href:
+                try:
+                    data = await self._get_with_retry(href)
+                except InvalidDataError:
+                    # Weirdly, some categories return 404
+                    break
+                playlists = self._get_required(data, "playlists", dict)
+                playlist_ids |= {PlaylistID(x) for x in self._extract_ids(playlists)}
+                href = playlists.get("next")
         return playlist_ids
 
     @classmethod
-    def _extract_playlist_ids(cls, data: Dict[str, Any]) -> Set[PlaylistID]:
-        playlist_ids: Set[PlaylistID] = set()
+    def _extract_ids(cls, data: Dict[str, Any]) -> Set[str]:
+        ids: Set[str] = set()
         items = cls._get_required(data, "items", list)
         for item in items:
             if not isinstance(item, dict):
                 raise InvalidDataError(f"Invalid item: {item}")
-            playlist_id = cls._get_required(item, "id", str)
-            playlist_ids.add(PlaylistID(playlist_id))
-        return playlist_ids
+            ids.add(cls._get_required(item, "id", str))
+        return ids
 
     async def get_playlist(
         self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
@@ -253,7 +275,7 @@ class Spotify:
             "{}?fields=external_urls,name,description,snapshot_id,"
             "owner(display_name,external_urls),followers.total"
         )
-        template = cls.BASE_URL + rest
+        template = cls.BASE_URL + "playlists/" + rest
         return template.format(playlist_id)
 
     @classmethod
@@ -262,7 +284,7 @@ class Spotify:
             "{}/tracks?fields=items(added_at,track(id,external_urls,"
             "duration_ms,name,album(external_urls,name),artists)),next"
         )
-        template = cls.BASE_URL + rest
+        template = cls.BASE_URL + "playlists/" + rest
         return template.format(playlist_id)
 
     @classmethod

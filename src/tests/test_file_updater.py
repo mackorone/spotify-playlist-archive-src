@@ -112,6 +112,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.mock_spotify = self.mock_spotify_class.return_value
         self.mock_spotify.get_spotify_user_playlist_ids = AsyncMock()
         self.mock_spotify.get_featured_playlist_ids = AsyncMock()
+        self.mock_spotify.get_category_playlist_ids = AsyncMock()
         self.mock_spotify.get_playlist = AsyncMock()
 
     async def asyncTearDown(self) -> None:
@@ -156,13 +157,14 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         await self._update_files_impl()
 
     async def test_auto_register(self) -> None:
-        self.mock_spotify.get_spotify_user_playlist_ids.return_value = {"one", "three"}
-        self.mock_spotify.get_featured_playlist_ids.return_value = {"two", "three"}
+        self.mock_spotify.get_spotify_user_playlist_ids.return_value = {"a", "d"}
+        self.mock_spotify.get_featured_playlist_ids.return_value = {"b", "d"}
+        self.mock_spotify.get_category_playlist_ids.return_value = {"c", "d"}
         self.mock_spotify.get_playlist.side_effect = self._get_playlist
-        for name in ["one", "two", "three"]:
+        for name in "abcd":
             self.assertFalse((self.playlists_dir / "registry" / name).exists())
         await self._update_files_impl(auto_register=True)
-        for name in ["one", "two", "three"]:
+        for name in "abcd":
             self.assertTrue((self.playlists_dir / "registry" / name).exists())
 
     async def test_fixup_aliases(self) -> None:

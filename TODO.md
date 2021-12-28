@@ -11,7 +11,6 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
-    - Enable auto-registering most popular playlists
     - Don't update snapshot ID if no other changes
     - https://next.github.com/projects/flat-data
 

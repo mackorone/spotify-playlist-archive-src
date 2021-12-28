@@ -209,6 +209,7 @@ class FileUpdater:
         playlist_ids = sorted(
             await spotify.get_spotify_user_playlist_ids()
             | await spotify.get_featured_playlist_ids()
+            | await spotify.get_category_playlist_ids()
         )
         for playlist_id in playlist_ids:
             path = registry_dir / playlist_id

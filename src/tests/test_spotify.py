@@ -165,14 +165,14 @@ class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
                 {
                     "playlists": {
                         "items": [{"id": "a"}, {"id": "b"}],
+                        "next": "next_url",
                     },
-                    "next": "next_url",
                 },
                 {
                     "playlists": {
                         "items": [{"id": "c"}, {"id": "d"}],
+                        "next": "",
                     },
-                    "next": "",
                 },
             ]
         spotify = Spotify("token")
