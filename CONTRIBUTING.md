@@ -9,8 +9,9 @@ $ python3.8 -m venv venv
 $ source venv/bin/activate
 ```
 
-Then install `pip-tools`:
+Then upgrade `pip` and install `pip-tools`:
 ```
+$ pip install --upgrade pip
 $ pip install pip-tools
 ```
 
