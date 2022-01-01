@@ -123,12 +123,15 @@ class FileUpdater:
                     playlist_id,
                 ),
             )
-            for playlist_id in sorted_by_num_followers[1:]:
-                i = 2
-                new_name = f"{name} ({i})"
+            for i, playlist_id in enumerate(sorted_by_num_followers):
+                if i == 0:
+                    logger.info(f"  {playlist_id}: {name}")
+                    continue
+                suffix = 2
+                new_name = f"{name} ({suffix})"
                 while any(p.name == new_name for p in playlists.values()):
-                    i += 1
-                    new_name = f"{name} ({i})"
+                    suffix += 1
+                    new_name = f"{name} ({suffix})"
                 logger.info(f"  {playlist_id}: {new_name}")
                 playlist = playlists[playlist_id]
                 playlists[playlist_id] = Playlist(
