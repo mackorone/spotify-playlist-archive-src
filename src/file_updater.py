@@ -19,10 +19,6 @@ class MalformedAliasError(Exception):
     pass
 
 
-class DuplicatePlaylistNamesError(Exception):
-    pass
-
-
 class UnexpectedFilesError(Exception):
     pass
 
@@ -82,7 +78,7 @@ class FileUpdater:
         # playlists/registry. This makes it easy to add new a playlist: just
         # touch an empty file like playlists/registry/<playlist_id> and this
         # script will handle the rest.
-        playlist_ids: Mapping[PlaylistID, pathlib.Path] = {
+        playlist_id_to_path: Mapping[PlaylistID, pathlib.Path] = {
             PlaylistID(path.name): path for path in registry_dir.iterdir()
         }
 
@@ -90,23 +86,24 @@ class FileUpdater:
         # naming collisions when archiving personalized playlists, which have the
         # same name for every user. To add an alias, add a single line
         # containing the desired name to playlists/registry/<playlist_id>
-        cls._fixup_aliases(playlist_ids)
-        aliases = cls._get_aliases(playlist_ids)
+        cls._fixup_aliases(playlist_id_to_path)
+        aliases = cls._get_aliases(playlist_id_to_path)
 
         # Get the data from Spotify
         playlists: Dict[PlaylistID, Playlist] = {}
-        logger.info(f"Fetching {len(playlist_ids)} playlists...")
-        for i, playlist_id in enumerate(sorted(playlist_ids)):
-            denominator = str(len(playlist_ids))
+        logger.info(f"Fetching {len(playlist_id_to_path)} playlists...")
+        for i, playlist_id in enumerate(sorted(playlist_id_to_path)):
+            denominator = str(len(playlist_id_to_path))
             numerator = str(i).rjust(len(denominator))
-            progress_fraction = i / len(playlist_ids)
-            progress_percent = f"{progress_fraction:.1%}".rjust(6)
+            progress_fraction = i / len(playlist_id_to_path)
+            progress_percent = f"{progress_fraction:.1%}".rjust(5)
             logger.info(
                 f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
             )
             playlists[playlist_id] = await spotify.get_playlist(playlist_id, aliases)
+        logger.info("Done fetching playlists")
 
-        # Check for duplicate playlist names
+        # Gracefully handle playlists with the same name
         playlist_names_to_ids = collections.defaultdict(set)
         for playlist_id, playlist in playlists.items():
             playlist_names_to_ids[playlist.name].add(playlist_id)
@@ -116,9 +113,33 @@ class FileUpdater:
             if len(playlist_ids) > 1
         }
         if duplicate_names:
-            raise DuplicatePlaylistNamesError(
-                f"Duplicate playlist names: {duplicate_names}"
+            logger.info("Handling duplicate names")
+        for name, playlist_ids in sorted(duplicate_names.items()):
+            sorted_by_num_followers = sorted(
+                playlist_ids,
+                # Sort by num_followers desc, playlist_id asc
+                key=lambda playlist_id: (
+                    -1 * (playlists[playlist_id].num_followers or 0),
+                    playlist_id,
+                ),
             )
+            for playlist_id in sorted_by_num_followers[1:]:
+                i = 2
+                new_name = f"{name} ({i})"
+                while any(p.name == new_name for p in playlists.values()):
+                    i += 1
+                    new_name = f"{name} ({i})"
+                logger.info(f"  {playlist_id}: {new_name}")
+                playlist = playlists[playlist_id]
+                playlists[playlist_id] = Playlist(
+                    url=playlist.url,
+                    name=new_name,
+                    description=playlist.description,
+                    tracks=playlist.tracks,
+                    snapshot_id=playlist.snapshot_id,
+                    num_followers=playlist.num_followers,
+                    owner=playlist.owner,
+                )
 
         # Process the playlists
         logger.info(f"Updating {len(playlists)} playlists...")
@@ -197,7 +218,7 @@ class FileUpdater:
             for path in directory.iterdir():
                 if not any(
                     path.name.endswith(suffix)
-                    and cls._remove_suffix(path.name, suffix) in playlist_ids
+                    and cls._remove_suffix(path.name, suffix) in playlist_id_to_path
                     for suffix in suffixes
                 ):
                     unexpected_files.add(path)
@@ -226,10 +247,12 @@ class FileUpdater:
                 path.touch()
 
     @classmethod
-    def _fixup_aliases(cls, playlist_ids: Mapping[PlaylistID, pathlib.Path]) -> None:
+    def _fixup_aliases(
+        cls, playlist_id_to_path: Mapping[PlaylistID, pathlib.Path]
+    ) -> None:
         # GitHub makes it easy to create files that look empty but actually
         # contain a single newline. Normalize them to simplify other logic.
-        for playlist_id, path in sorted(playlist_ids.items()):
+        for playlist_id, path in sorted(playlist_id_to_path.items()):
             with open(path, "r") as f:
                 content = f.read()
             if content == "\n":
@@ -239,10 +262,10 @@ class FileUpdater:
 
     @classmethod
     def _get_aliases(
-        cls, playlist_ids: Mapping[PlaylistID, pathlib.Path]
+        cls, playlist_id_to_path: Mapping[PlaylistID, pathlib.Path]
     ) -> Dict[PlaylistID, str]:
         aliases: Dict[PlaylistID, str] = {}
-        for playlist_id, path in sorted(playlist_ids.items()):
+        for playlist_id, path in sorted(playlist_id_to_path.items()):
             with open(path, "r") as f:
                 lines = f.read().splitlines()
             if not lines:

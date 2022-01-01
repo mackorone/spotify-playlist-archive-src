@@ -8,12 +8,7 @@ from typing import Mapping, Type, TypeVar
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 
-from file_updater import (
-    DuplicatePlaylistNamesError,
-    FileUpdater,
-    MalformedAliasError,
-    UnexpectedFilesError,
-)
+from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
 
@@ -130,20 +125,33 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
 
     @classmethod
-    def _get_playlist(
-        cls, playlist_id: PlaylistID, aliases: Mapping[PlaylistID, str]
+    def _helper(
+        cls,
+        playlist_id: PlaylistID,
+        name: str,
+        num_followers: int,
     ) -> Playlist:
         return Playlist(
-            url=f"playlist_{playlist_id}_url",
-            name=aliases.get(playlist_id) or f"playlist_{playlist_id}_name",
+            url=f"url_{playlist_id}",
+            name=name,
             description="description",
             tracks=[],
             snapshot_id="snapshot_id",
-            num_followers=0,
+            num_followers=num_followers,
             owner=Owner(
                 url="owner_url",
                 name="owner_name",
             ),
+        )
+
+    @classmethod
+    def _fake_get_playlist(
+        cls, playlist_id: PlaylistID, aliases: Mapping[PlaylistID, str]
+    ) -> Playlist:
+        return cls._helper(
+            playlist_id=playlist_id,
+            name=aliases.get(playlist_id) or f"name_{playlist_id}",
+            num_followers=0,
         )
 
     async def test_empty(self) -> None:
@@ -160,7 +168,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.mock_spotify.get_spotify_user_playlist_ids.return_value = {"a", "d"}
         self.mock_spotify.get_featured_playlist_ids.return_value = {"b", "d"}
         self.mock_spotify.get_category_playlist_ids.return_value = {"c", "d"}
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
         for name in "abcd":
             self.assertFalse((self.playlists_dir / "registry" / name).exists())
         await self._update_files_impl(auto_register=True)
@@ -168,7 +176,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             self.assertTrue((self.playlists_dir / "registry" / name).exists())
 
     async def test_fixup_aliases(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
         alias_file = registry_dir / "foo"
@@ -191,7 +199,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 await self._update_files_impl()
 
     async def test_good_alias(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
         with open(registry_dir / "foo", "w") as f:
@@ -203,18 +211,29 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.assertEqual(lines[0], "alias")
 
     async def test_duplicate_playlist_names(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = [
+            self._helper(playlist_id=PlaylistID("a"), name="alias", num_followers=1),
+            self._helper(playlist_id=PlaylistID("b"), name="alias", num_followers=2),
+            self._helper(playlist_id=PlaylistID("c"), name="alias", num_followers=2),
+            self._helper(playlist_id=PlaylistID("d"), name="alias (3)", num_followers=0),
+        ]
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
-        with open(registry_dir / "foo", "w") as f:
-            f.write("alias")
-        with open(registry_dir / "bar", "w") as f:
-            f.write("alias")
-        with self.assertRaises(DuplicatePlaylistNamesError):
-            await self._update_files_impl()
+        for playlist_id in "abcd":
+            (registry_dir / playlist_id).touch()
+        await self._update_files_impl()
+        for playlist_id, name in [
+            ("b", "alias"),
+            ("c", "alias (2)"),
+            ("d", "alias (3)"),
+            ("a", "alias (4)"),
+        ]:
+            with open(self.playlists_dir / "plain" / playlist_id, "r") as f:
+                lines = f.read().splitlines()
+            self.assertEqual(lines[0], name)
 
     async def test_unexpected_files(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
         for directory in ["registry", "plain", "pretty", "cumulative"]:
             (self.playlists_dir / directory).mkdir(parents=True)
         (self.playlists_dir / "registry" / "foo").touch()
@@ -236,7 +255,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             path.unlink()
 
     async def test_readme(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._get_playlist
+        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
         for directory in ["registry", "plain", "pretty", "cumulative"]:
             (self.playlists_dir / directory).mkdir(parents=True)
         for name in ["one", "two", "three"]:
@@ -264,9 +283,9 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
                 ## Playlists
 
-                - [playlist\\_one\\_name](/playlists/pretty/one.md)
-                - [playlist\\_three\\_name](/playlists/pretty/three.md)
-                - [playlist\\_two\\_name](/playlists/pretty/two.md)
+                - [name\\_one](/playlists/pretty/one.md)
+                - [name\\_three](/playlists/pretty/three.md)
+                - [name\\_two](/playlists/pretty/two.md)
                 """
             ),
         )
