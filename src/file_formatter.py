@@ -23,18 +23,18 @@ class Formatter:
     ARTIST_SEPARATOR = ", "
 
     @classmethod
-    def readme(
-        cls, prev_content: str, playlist_ids_to_names: Mapping[PlaylistID, str]
-    ) -> str:
+    def readme(cls, prev_content: str, playlists: Mapping[PlaylistID, Playlist]) -> str:
         old_lines = prev_content.splitlines()
         index = old_lines.index("## Playlists")
         new_lines = old_lines[: index + 1]
         new_lines.append("")
-        for playlist_id, name in sorted(
-            playlist_ids_to_names.items(),
-            key=lambda pair: (pair[1].lower(), pair[0].lower()),
+        for playlist_id, playlist in sorted(
+            playlists.items(),
+            key=lambda pair: (pair[1].name.lower(), pair[0]),
         ):
-            link = cls._link(cls._escape_markdown(name), URL.pretty(playlist_id))
+            link = cls._link(
+                cls._escape_markdown(playlist.name), URL.pretty(playlist_id)
+            )
             new_lines.append(f"- {link}")
         return "\n".join(new_lines) + "\n"
 

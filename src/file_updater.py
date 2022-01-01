@@ -9,7 +9,7 @@ from typing import Dict, Mapping, Set
 from environment import Environment
 from file_formatter import Formatter
 from playlist_id import PlaylistID
-from playlist_types import CumulativePlaylist
+from playlist_types import CumulativePlaylist, Playlist
 from spotify import Spotify
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -93,19 +93,44 @@ class FileUpdater:
         cls._fixup_aliases(playlist_ids)
         aliases = cls._get_aliases(playlist_ids)
 
-        playlist_names_to_ids: Dict[str, Set[PlaylistID]] = collections.defaultdict(set)
-        for playlist_id in sorted(playlist_ids):
+        # Get the data from Spotify
+        playlists: Dict[PlaylistID, Playlist] = {}
+        logger.info(f"Fetching {len(playlist_ids)} playlists...")
+        for i, playlist_id in enumerate(sorted(playlist_ids)):
+            denominator = str(len(playlist_ids))
+            numerator = str(i).rjust(len(denominator))
+            progress_fraction = i / len(playlist_ids)
+            progress_percent = f"{progress_fraction:.1%}".rjust(6)
+            logger.info(
+                f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
+            )
+            playlists[playlist_id] = await spotify.get_playlist(playlist_id, aliases)
+
+        # Check for duplicate playlist names
+        playlist_names_to_ids = collections.defaultdict(set)
+        for playlist_id, playlist in playlists.items():
+            playlist_names_to_ids[playlist.name].add(playlist_id)
+        duplicate_names = {
+            name: playlist_ids
+            for name, playlist_ids in playlist_names_to_ids.items()
+            if len(playlist_ids) > 1
+        }
+        if duplicate_names:
+            raise DuplicatePlaylistNamesError(
+                f"Duplicate playlist names: {duplicate_names}"
+            )
+
+        # Process the playlists
+        logger.info(f"Updating {len(playlists)} playlists...")
+        for playlist_id, playlist in sorted(playlists.items()):
+            logger.info(f"Playlist ID: {playlist_id}")
+            logger.info(f"Playlist name: {playlist.name}")
+
             plain_path = plain_dir / playlist_id
             pretty_md_path = pretty_dir / f"{playlist_id}.md"
             pretty_json_path = pretty_dir / f"{playlist_id}.json"
             cumulative_md_path = cumulative_dir / f"{playlist_id}.md"
             cumulative_json_path = cumulative_dir / f"{playlist_id}.json"
-
-            # Get the data from Spotify
-            logger.info(f"Fetching playlist: {playlist_id}")
-            playlist = await spotify.get_playlist(playlist_id, aliases)
-            logger.info(f"Playlist name: {playlist.name}")
-            playlist_names_to_ids[playlist.name].add(playlist_id)
 
             # Update plain playlist
             prev_content = cls._get_file_content_or_empty_string(plain_path)
@@ -162,23 +187,6 @@ class FileUpdater:
                 path=cumulative_md_path,
             )
 
-        # Check for duplicate playlist names
-        duplicate_names = {
-            name: playlist_ids
-            for name, playlist_ids in playlist_names_to_ids.items()
-            if len(playlist_ids) > 1
-        }
-        if duplicate_names:
-            raise DuplicatePlaylistNamesError(
-                f"Duplicate playlist names: {duplicate_names}"
-            )
-
-        # Reverse the mapping for later use
-        playlist_ids_to_names = {
-            list(playlist_ids)[0]: name
-            for name, playlist_ids in playlist_names_to_ids.items()
-        }
-
         # Check for unexpected files in playlist directories
         unexpected_files: Set[pathlib.Path] = set()
         for directory, suffixes in [
@@ -201,7 +209,7 @@ class FileUpdater:
             readme_path = playlists_dir.parent / "README.md"
             with open(readme_path, "r") as f:
                 prev_content = f.read()
-            content = Formatter.readme(prev_content, playlist_ids_to_names)
+            content = Formatter.readme(prev_content, playlists)
             cls._write_to_file_if_content_changed(prev_content, content, readme_path)
 
     @classmethod
@@ -268,8 +276,8 @@ class FileUpdater:
         cls, prev_content: str, content: str, path: pathlib.Path
     ) -> None:
         if content == prev_content:
-            logger.info(f"No changes to file: {path}")
+            logger.info(f"  No changes to file: {path}")
             return
-        logger.info(f"Writing updates to file: {path}")
+        logger.info(f"  Writing updates to file: {path}")
         with open(path, "w") as f:
             f.write(content)
