@@ -124,12 +124,18 @@ class Formatter:
             cls.REMOVED,
         ]
 
+        published_ids = playlist.published_playlist_ids
+        if len(published_ids) == 1:
+            playlist_url = f"https://open.spotify.com/playlist/{published_ids[0]}"
+        else:
+            playlist_url = ""
+
         vertical_separators = ["|"] * (len(columns) + 1)
         line_template = " {} ".join(vertical_separators)
         divider_line = "---".join(vertical_separators)
         lines = cls._markdown_header_lines(
             playlist_name=playlist.name,
-            playlist_url=playlist.url,
+            playlist_url=playlist_url,
             playlist_id=playlist_id,
             playlist_description=playlist.description,
             is_cumulative=True,
@@ -138,6 +144,18 @@ class Formatter:
             line_template.format(*columns),
             divider_line,
         ]
+
+        # If the tracks are spread across multiple published playlists, append
+        # a link for each playlist
+        if len(published_ids) > 1:
+            joined = ", ".join(
+                cls._link(
+                    cls._escape_markdown(f"part {i + 1}"),
+                    f"https://open.spotify.com/playlist/{playlist_id}",
+                )
+                for i, playlist_id in enumerate(published_ids)
+            )
+            lines[2] += f" ({joined})"
 
         for i, track in enumerate(playlist.tracks):
             date_added = str(track.date_added)

@@ -1,6 +1,4 @@
 - Cumulative playlist improvements
-    - Link to published cumulative playlists
-        - How to handle playlists with more than 11k tracks
     - Clean up near-duplicates in cumulative playlists
         - Key: title, artists, and duration
             - Check that this doesn't have false positives

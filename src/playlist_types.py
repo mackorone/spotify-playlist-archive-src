@@ -6,6 +6,7 @@ import dataclasses
 import datetime
 import json
 from typing import List, Optional, Sequence
+
 from playlist_id import PlaylistID
 
 
@@ -104,7 +105,7 @@ class CumulativePlaylist:
         self,
         today: datetime.date,
         playlist: Playlist,
-        published_playlist_ids: List[PlaylistID]
+        published_playlist_ids: List[PlaylistID],
     ) -> CumulativePlaylist:
         updated_tracks: List[CumulativeTrack] = []
         current_tracks = {track.get_id(): track for track in playlist.tracks}
@@ -189,7 +190,7 @@ class CumulativePlaylist:
         ).date()
         assert isinstance(date_first_scraped, datetime.date)
 
-        published_playlist_ids = playlist.get("published_playlist_ids") or []
+        published_playlist_ids = playlist["published_playlist_ids"]
         assert isinstance(published_playlist_ids, list)
         for playlist_id in published_playlist_ids:
             assert isinstance(playlist_id, str)
