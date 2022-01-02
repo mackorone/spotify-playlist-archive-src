@@ -4,6 +4,7 @@ import datetime
 import textwrap
 from unittest import TestCase
 
+from playlist_id import PlaylistID
 from playlist_types import (
     Album,
     Artist,
@@ -185,6 +186,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             ),
                         ],
                         date_first_scraped=date_first_scraped,
+                        published_playlist_ids=[PlaylistID("oldPublishedPlaylistID")],
                     ).update(
                         today=today,
                         playlist=Playlist(
@@ -199,6 +201,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                                 name="new_owner_name",
                             ),
                         ),
+                        published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                     ),
                     CumulativePlaylist(
                         url="new_playlist_url",
@@ -225,6 +228,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             ),
                         ],
                         date_first_scraped=date_first_scraped,
+                        published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                     ),
                 )
 
@@ -244,6 +248,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                     description="old_description",
                     tracks=[],
                     date_first_scraped=date_first_scraped,
+                    published_playlist_ids=[PlaylistID("oldPublishedPlaylistID")],
                 ).update(
                     today=today,
                     playlist=Playlist(
@@ -275,6 +280,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             name="new_owner_name",
                         ),
                     ),
+                    published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                 ),
                 CumulativePlaylist(
                     url="new_playlist_url",
@@ -301,6 +307,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                         ),
                     ],
                     date_first_scraped=date_first_scraped,
+                    published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                 ),
             )
 
@@ -365,6 +372,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                         ),
                     ],
                     date_first_scraped=date_first_scraped,
+                    published_playlist_ids=[PlaylistID("oldPublishedPlaylistID")],
                 ).update(
                     today=today,
                     playlist=Playlist(
@@ -400,6 +408,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                             name="new_owner_name",
                         ),
                     ),
+                    published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                 ),
                 CumulativePlaylist(
                     url="new_playlist_url",
@@ -426,6 +435,7 @@ class TestCumulativePlaylistUpdate(TestCase):
                         ),
                     ],
                     date_first_scraped=date_first_scraped,
+                    published_playlist_ids=[PlaylistID("newPublishedPlaylistID")],
                 ),
             )
 
@@ -475,6 +485,7 @@ class TestCumulativePlaylistToAndFromJSON(TestCase):
                 ),
             ],
             date_first_scraped=datetime.date(2021, 12, 25),
+            published_playlist_ids=[PlaylistID("abc123")],
         )
         cumulative_playlist_json = cumulative_playlist.to_json()
         self.assertEqual(
@@ -485,6 +496,9 @@ class TestCumulativePlaylistToAndFromJSON(TestCase):
                   "date_first_scraped": "2021-12-25",
                   "description": "description",
                   "name": "playlist_name",
+                  "published_playlist_ids": [
+                    "abc123"
+                  ],
                   "tracks": [
                     {
                       "album": {

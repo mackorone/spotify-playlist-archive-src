@@ -8,6 +8,7 @@ from typing import Dict, Mapping, Set
 
 from environment import Environment
 from file_formatter import Formatter
+from github import GitHub
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
 from spotify import Spotify
@@ -88,6 +89,11 @@ class FileUpdater:
         # containing the desired name to playlists/registry/<playlist_id>
         cls._fixup_aliases(playlist_id_to_path)
         aliases = cls._get_aliases(playlist_id_to_path)
+
+        # Get data from GitHub
+        published_cumulative_playlists = (
+            await GitHub.get_published_cumulative_playlists()
+        )
 
         # Get the data from Spotify
         playlists: Dict[PlaylistID, Playlist] = {}
@@ -194,8 +200,10 @@ class FileUpdater:
                     description="",
                     tracks=[],
                     date_first_scraped=today,
+                    published_playlist_ids=[],
                 )
-            new_struct = prev_struct.update(today, playlist)
+            published_ids = published_cumulative_playlists.get(playlist_id) or []
+            new_struct = prev_struct.update(today, playlist, published_ids)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
                 content=new_struct.to_json(),

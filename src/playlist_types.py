@@ -6,6 +6,7 @@ import dataclasses
 import datetime
 import json
 from typing import List, Optional, Sequence
+from playlist_id import PlaylistID
 
 
 @dataclasses.dataclass(frozen=True)
@@ -97,8 +98,14 @@ class CumulativePlaylist:
     description: str
     tracks: Sequence[CumulativeTrack]
     date_first_scraped: datetime.date
+    published_playlist_ids: List[PlaylistID]
 
-    def update(self, today: datetime.date, playlist: Playlist) -> CumulativePlaylist:
+    def update(
+        self,
+        today: datetime.date,
+        playlist: Playlist,
+        published_playlist_ids: List[PlaylistID]
+    ) -> CumulativePlaylist:
         updated_tracks: List[CumulativeTrack] = []
         current_tracks = {track.get_id(): track for track in playlist.tracks}
         previous_tracks = {track.get_id(): track for track in self.tracks}
@@ -158,6 +165,7 @@ class CumulativePlaylist:
                 ),
             ),
             date_first_scraped=self.date_first_scraped,
+            published_playlist_ids=published_playlist_ids,
         )
 
     @classmethod
@@ -180,6 +188,11 @@ class CumulativePlaylist:
             date_first_scraped_string, "%Y-%m-%d"
         ).date()
         assert isinstance(date_first_scraped, datetime.date)
+
+        published_playlist_ids = playlist.get("published_playlist_ids") or []
+        assert isinstance(published_playlist_ids, list)
+        for playlist_id in published_playlist_ids:
+            assert isinstance(playlist_id, str)
 
         cumulative_tracks: List[CumulativeTrack] = []
         assert isinstance(playlist["tracks"], list)
@@ -252,6 +265,7 @@ class CumulativePlaylist:
             description=description,
             tracks=cumulative_tracks,
             date_first_scraped=date_first_scraped,
+            published_playlist_ids=published_playlist_ids,
         )
 
     def to_json(self) -> str:

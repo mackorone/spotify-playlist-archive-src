@@ -98,6 +98,14 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.repo_dir = pathlib.Path(self.temp_dir.name)
         self.playlists_dir = self.repo_dir / "playlists"
 
+        # Mock the get_published_cumulative_playlists method
+        patcher = patch(
+            "github.GitHub.get_published_cumulative_playlists",
+            return_value={},
+        )
+        self.mock_get_published_cumulative_playlists = patcher.start()
+        self.addCleanup(patcher.stop)
+
         # Mock the spotify class
         patcher = patch("file_updater.Spotify")
         self.mock_spotify_class = patcher.start()
@@ -215,7 +223,9 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             self._helper(playlist_id=PlaylistID("a"), name="alias", num_followers=1),
             self._helper(playlist_id=PlaylistID("b"), name="alias", num_followers=2),
             self._helper(playlist_id=PlaylistID("c"), name="alias", num_followers=2),
-            self._helper(playlist_id=PlaylistID("d"), name="alias (3)", num_followers=0),
+            self._helper(
+                playlist_id=PlaylistID("d"), name="alias (3)", num_followers=0
+            ),
         ]
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
