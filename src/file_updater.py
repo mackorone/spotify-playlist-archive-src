@@ -11,7 +11,7 @@ from file_formatter import Formatter
 from github import GitHub
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
-from spotify import Spotify
+from spotify import InvalidDataError, Spotify
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -106,7 +106,14 @@ class FileUpdater:
             logger.info(
                 f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
             )
-            playlists[playlist_id] = await spotify.get_playlist(playlist_id, aliases)
+            try:
+                playlists[playlist_id] = await spotify.get_playlist(
+                    playlist_id, aliases
+                )
+            # When playlists are deleted, the Spotify API returns 404; skip
+            # those playlists (no updates) but retain them in the archive
+            except InvalidDataError:
+                logger.warning(f"Failed to fetch playlist: {playlist_id}")
         logger.info("Done fetching playlists")
 
         # Gracefully handle playlists with the same name

@@ -1,4 +1,6 @@
 - Cumulative playlist improvements
+    - More data in markdown files (description, etc.)
+    - More data in published playlists (date first scraped, etc.)
     - Clean up near-duplicates in cumulative playlists
         - Key: title, artists, and duration
             - Check that this doesn't have false positives
