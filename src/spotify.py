@@ -110,7 +110,7 @@ class Spotify:
             categories = self._get_required(data, "categories", dict)
             category_ids |= self._extract_ids(categories)
             href = categories.get("next")
-        for category in category_ids:
+        for category in sorted(category_ids):
             href = self.BASE_URL + f"browse/categories/{category}/playlists?limit=50"
             while href:
                 try:

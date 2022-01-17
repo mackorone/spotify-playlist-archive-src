@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+from typing import Any, Dict
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
@@ -152,6 +153,12 @@ class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
         spotify = Spotify("token")
         playlist_ids = await spotify.get_spotify_user_playlist_ids()
         self.assertEqual(playlist_ids, {PlaylistID(x) for x in "abcd"})
+        self.mock_session.get.assert_has_calls(
+            [
+                call("https://api.spotify.com/v1/users/spotify/playlists?limit=50"),
+                call("next_url"),
+            ]
+        )
 
 
 class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
@@ -189,6 +196,132 @@ class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
         spotify = Spotify("token")
         playlist_ids = await spotify.get_featured_playlist_ids()
         self.assertEqual(playlist_ids, {PlaylistID(x) for x in "abcd"})
+        self.mock_session.get.assert_has_calls(
+            [
+                call("https://api.spotify.com/v1/browse/featured-playlists?limit=50"),
+                call("next_url"),
+            ]
+        )
+
+
+class TestGetCategoryPlaylistIDs(SpotifyTestCase):
+    async def test_invalid_data(self) -> None:
+        for side_effect in [
+            # Invalid categories response
+            [{"categories": None}],
+            [{"categories": {}}],
+            [{"categories": {"items": None}}],
+            [{"categories": {"items": [None]}}],
+            [{"categories": {"items": [{}]}}],
+            [{"categories": {"items": [{"id": None}]}}],
+            # Valid categories response, invalid playlists response
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": None},
+            ],
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": {}},
+            ],
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": {"items": None}},
+            ],
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": {"items": [None]}},
+            ],
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": {"items": [{}]}},
+            ],
+            [
+                {"categories": {"items": [{"id": "a"}]}},
+                {"playlists": {"items": [{"id": None}]}},
+            ],
+        ]:
+            async with self.mock_session.get.return_value as mock_response:
+                mock_response.json.side_effect = side_effect
+            spotify = Spotify("token")
+            with self.assertRaises(InvalidDataError):
+                await spotify.get_category_playlist_ids()
+
+    async def test_success(self) -> None:
+        # The side_effect attribute can't both return values *and* raise
+        # exceptions, so define our own helper function that can.
+        call_count = -1
+
+        def _helper(content_type: None) -> Dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 0:
+                return {
+                    "categories": {
+                        "items": [{"id": "category_1"}, {"id": "category_2"}],
+                        "next": "next_category_url",
+                    },
+                }
+            if call_count == 1:
+                # Use category_3 to simulate FailedRequestError
+                return {
+                    "categories": {
+                        "items": [{"id": "category_3"}],
+                        "next": "",
+                    },
+                }
+            if call_count == 2:
+                # First playlists belonging to category_1
+                return {
+                    "playlists": {
+                        "items": [{"id": "a"}, {"id": "b"}],
+                        "next": "next_playlists_url",
+                    },
+                }
+            if call_count == 3:
+                # More playlists belonging to category_1
+                return {
+                    "playlists": {
+                        "items": [{"id": "c"}],
+                        "next": "",
+                    },
+                }
+            if call_count == 4:
+                # All playlists belonging to category_2
+                return {
+                    "playlists": {
+                        "items": [{"id": "d"}],
+                        "next": "",
+                    },
+                }
+            if call_count == 5:
+                # category_3 doesn't exist
+                raise FailedRequestError()
+            assert False, "Should never get here"
+
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.side_effect = _helper
+        spotify = Spotify("token")
+        playlist_ids = await spotify.get_category_playlist_ids()
+        self.assertEqual(playlist_ids, {PlaylistID(x) for x in "abcd"})
+        self.mock_session.get.assert_has_calls(
+            [
+                call("https://api.spotify.com/v1/browse/categories?limit=50"),
+                call("next_category_url"),
+                call(
+                    "https://api.spotify.com/v1/browse/categories/category_1/playlists?"
+                    "limit=50"
+                ),
+                call("next_playlists_url"),
+                call(
+                    "https://api.spotify.com/v1/browse/categories/category_2/playlists?"
+                    "limit=50"
+                ),
+                call(
+                    "https://api.spotify.com/v1/browse/categories/category_3/playlists?"
+                    "limit=50"
+                ),
+            ]
+        )
 
 
 class TestGetPlaylist(SpotifyTestCase):

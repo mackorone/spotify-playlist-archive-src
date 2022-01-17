@@ -18,7 +18,6 @@
     - https://next.github.com/projects/flat-data
 
 - Codebase
-    - Unit tests for get_category_playlist_ids
     - More unit tests for playlist updater
     - Merge cumulative regeneration code
     - Measure code coverage and add missing tests
