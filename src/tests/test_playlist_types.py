@@ -32,54 +32,56 @@ class TestTrackGetID(TestCase):
         self.assertEqual(track.get_id(), "abc123")
 
 
-class TestPlaylistToJSON(TestCase):
+class TestPlaylistToAndFromJSON(TestCase):
     def test_success(self) -> None:
-        self.assertEqual(
-            Playlist(
-                url="playlist_url",
-                name="playlist_name",
-                description="description",
-                tracks=[
-                    Track(
-                        url="track_url",
-                        name="track_name",
-                        album=Album(
-                            url="album_url",
-                            name="album_name",
-                        ),
-                        artists=[
-                            Artist(
-                                url="artist_url",
-                                name="artist_name",
-                            )
-                        ],
-                        duration_ms=1234,
-                        added_at=datetime.datetime(2021, 12, 25, 23, 59, 59),
+        playlist = Playlist(
+            url="playlist_url",
+            name="playlist_name",
+            description="description",
+            tracks=[
+                Track(
+                    url="track_url",
+                    name="track_name",
+                    album=Album(
+                        url="album_url",
+                        name="album_name",
                     ),
-                    Track(
+                    artists=[
+                        Artist(
+                            url="artist_url",
+                            name="artist_name",
+                        )
+                    ],
+                    duration_ms=1234,
+                    added_at=datetime.datetime(2021, 12, 25, 23, 59, 59),
+                ),
+                Track(
+                    url="",
+                    name="",
+                    album=Album(
                         url="",
                         name="",
-                        album=Album(
+                    ),
+                    artists=[
+                        Artist(
                             url="",
                             name="",
-                        ),
-                        artists=[
-                            Artist(
-                                url="",
-                                name="",
-                            )
-                        ],
-                        duration_ms=0,
-                        added_at=None,
-                    ),
-                ],
-                snapshot_id="snapshot_id",
-                num_followers=999,
-                owner=Owner(
-                    url="owner_url",
-                    name="owner_name",
+                        )
+                    ],
+                    duration_ms=0,
+                    added_at=None,
                 ),
-            ).to_json(),
+            ],
+            snapshot_id="snapshot_id",
+            num_followers=999,
+            owner=Owner(
+                url="owner_url",
+                name="owner_name",
+            ),
+        )
+        playlist_json = playlist.to_json()
+        self.assertEqual(
+            playlist_json,
             textwrap.dedent(
                 """\
                 {
@@ -129,6 +131,7 @@ class TestPlaylistToJSON(TestCase):
                 }"""
             ),
         )
+        self.assertEqual(playlist, Playlist.from_json(playlist_json))
 
 
 class TestCumulativeTrackGetID(TestCase):

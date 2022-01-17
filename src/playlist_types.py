@@ -53,6 +53,99 @@ class Playlist:
     num_followers: Optional[int]
     owner: Owner
 
+    @classmethod
+    def from_json(cls, content: str) -> Playlist:
+        playlist = json.loads(content)
+        assert isinstance(playlist, dict)
+
+        playlist_url = playlist["url"]
+        assert isinstance(playlist_url, str)
+
+        playlist_name = playlist["name"]
+        assert isinstance(playlist_name, str)
+
+        description = playlist["description"]
+        assert isinstance(description, str)
+
+        snapshot_id = playlist["snapshot_id"]
+        assert isinstance(snapshot_id, str)
+
+        num_followers = playlist["num_followers"]
+        assert isinstance(num_followers, (int, type(None)))
+
+        assert isinstance(playlist["owner"], dict)
+        owner_url = playlist["owner"]["url"]
+        assert isinstance(owner_url, str)
+        owner_name = playlist["owner"]["name"]
+        assert isinstance(owner_name, str)
+
+        tracks: List[Track] = []
+        assert isinstance(playlist["tracks"], list)
+        for track in playlist["tracks"]:
+            assert isinstance(track, dict)
+
+            track_url = track["url"]
+            assert isinstance(track_url, str)
+
+            track_name = track["name"]
+            assert isinstance(track_name, str)
+
+            assert isinstance(track["album"], dict)
+            album_url = track["album"]["url"]
+            assert isinstance(album_url, str)
+            album_name = track["album"]["name"]
+            assert isinstance(album_name, str)
+
+            artists = []
+            assert isinstance(track["artists"], list)
+            for artist in track["artists"]:
+                assert isinstance(artist, dict)
+                artist_url = artist["url"]
+                assert isinstance(artist_url, str)
+                artist_name = artist["name"]
+                assert isinstance(artist_name, str)
+                artists.append(Artist(url=artist_url, name=artist_name))
+
+            duration_ms = track["duration_ms"]
+            assert isinstance(duration_ms, int)
+
+            added_at_string = track["added_at"]
+            if added_at_string is None:
+                added_at = None
+            else:
+                assert isinstance(added_at_string, str)
+                added_at = datetime.datetime.strptime(
+                    added_at_string, "%Y-%m-%d %H:%M:%S"
+                )
+            assert isinstance(added_at, (datetime.datetime, type(None)))
+
+            tracks.append(
+                Track(
+                    url=track_url,
+                    name=track_name,
+                    album=Album(
+                        url=album_url,
+                        name=album_name,
+                    ),
+                    artists=artists,
+                    duration_ms=duration_ms,
+                    added_at=added_at,
+                )
+            )
+
+        return Playlist(
+            url=playlist_url,
+            name=playlist_name,
+            description=description,
+            tracks=tracks,
+            snapshot_id=snapshot_id,
+            num_followers=num_followers,
+            owner=Owner(
+                url=owner_url,
+                name=owner_name,
+            ),
+        )
+
     def to_json(self) -> str:
         return json.dumps(
             dataclasses.asdict(self),
