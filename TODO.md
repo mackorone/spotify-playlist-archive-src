@@ -11,13 +11,15 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
-    - Add Spotify-deleted playlists to README.md
-    - Support updates to formatting even if can't fetch
     - When playlists are added, only fetch/update those files
     - Don't update snapshot ID if no other changes
     - https://next.github.com/projects/flat-data
 
 - Codebase
     - More unit tests for playlist updater
+    - Fix code complexity of playlist updater
+    - Write wrapper class for path-related logic
+        - Add getter methods for all paths
+        - Only registry dir should be enumerable
     - Merge cumulative regeneration code
     - Measure code coverage and add missing tests

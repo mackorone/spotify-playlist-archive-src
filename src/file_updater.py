@@ -95,8 +95,15 @@ class FileUpdater:
             await GitHub.get_published_cumulative_playlists()
         )
 
-        # Get the data from Spotify
+        # Read existing playlist data, useful if Spotify fetch fails
         playlists: Dict[PlaylistID, Playlist] = {}
+        for playlist_id in sorted(playlist_id_to_path):
+            path = pretty_dir / f"{playlist_id}.json"
+            prev_content = cls._get_file_content_or_empty_string(path)
+            if prev_content:
+                playlists[playlist_id] = Playlist.from_json(prev_content)
+
+        # Update playlist data from Spotify
         logger.info(f"Fetching {len(playlist_id_to_path)} playlists...")
         for i, playlist_id in enumerate(sorted(playlist_id_to_path)):
             denominator = str(len(playlist_id_to_path))

@@ -269,17 +269,40 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
     # Patch the logger to suppress log spew
     @patch("file_updater.logger")
     async def test_readme(self, mock_logger: Mock) -> None:
+        # +-------------------+---+---+---+---+
+        # |     Criteria      | a | b | c | d |
+        # +-------------------+---+---+---+---+
+        # | Fetch succeeds    | 1 | 1 | 0 | 0 |
+        # | Has existing data | 1 | 0 | 1 | 0 |
+        # +-------------------+---+---+---+---+
+
         self.mock_spotify.get_playlist.side_effect = UnittestUtils.side_effect(
             [
                 self._fake_get_playlist(PlaylistID("a"), aliases={}),
                 self._fake_get_playlist(PlaylistID("b"), aliases={}),
                 FailedRequestError(),
+                FailedRequestError(),
             ]
         )
+
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
-        for name in "abc":
-            (registry_dir / name).touch()
+        for playlist_id in "abcd":
+            (registry_dir / playlist_id).touch()
+
+        pretty_dir = self.playlists_dir / "pretty"
+        pretty_dir.mkdir(parents=True)
+        for playlist_id in "ac":
+            path = pretty_dir / f"{playlist_id}.json"
+            playlist = self._helper(
+                playlist_id=PlaylistID(playlist_id),
+                name=f"name_{playlist_id}",
+                num_followers=0,
+            )
+            playlist_json = playlist.to_json()
+            with open(path, "w") as f:
+                f.write(playlist_json)
+
         with open(self.repo_dir / "README.md", "w") as f:
             f.write(
                 textwrap.dedent(
@@ -305,6 +328,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
                 - [name\\_a](/playlists/pretty/a.md)
                 - [name\\_b](/playlists/pretty/b.md)
+                - [name\\_c](/playlists/pretty/c.md)
                 """
             ),
         )
