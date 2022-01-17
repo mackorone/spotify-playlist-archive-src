@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
+from spotify import FailedRequestError
+from unittest_utils import UnittestUtils
 
 T = TypeVar("T")
 
@@ -264,12 +266,20 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 await self._update_files_impl()
             path.unlink()
 
-    async def test_readme(self) -> None:
-        self.mock_spotify.get_playlist.side_effect = self._fake_get_playlist
-        for directory in ["registry", "plain", "pretty", "cumulative"]:
-            (self.playlists_dir / directory).mkdir(parents=True)
-        for name in ["one", "two", "three"]:
-            (self.playlists_dir / "registry" / name).touch()
+    # Patch the logger to suppress log spew
+    @patch("file_updater.logger")
+    async def test_readme(self, mock_logger: Mock) -> None:
+        self.mock_spotify.get_playlist.side_effect = UnittestUtils.side_effect(
+            [
+                self._fake_get_playlist(PlaylistID("a"), aliases={}),
+                self._fake_get_playlist(PlaylistID("b"), aliases={}),
+                FailedRequestError(),
+            ]
+        )
+        registry_dir = self.playlists_dir / "registry"
+        registry_dir.mkdir(parents=True)
+        for name in "abc":
+            (registry_dir / name).touch()
         with open(self.repo_dir / "README.md", "w") as f:
             f.write(
                 textwrap.dedent(
@@ -293,9 +303,8 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
                 ## Playlists
 
-                - [name\\_one](/playlists/pretty/one.md)
-                - [name\\_three](/playlists/pretty/three.md)
-                - [name\\_two](/playlists/pretty/two.md)
+                - [name\\_a](/playlists/pretty/a.md)
+                - [name\\_b](/playlists/pretty/b.md)
                 """
             ),
         )
