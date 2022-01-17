@@ -9,7 +9,13 @@ from unittest.mock import AsyncMock, Mock, call, patch
 
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
-from spotify import InvalidDataError, RetryBudgetExceededError, Spotify
+from spotify import (
+    FailedRequestError,
+    InvalidDataError,
+    InvalidResponseError,
+    RetryBudgetExceededError,
+    Spotify,
+)
 
 
 class MockSession(AsyncMock):
@@ -55,13 +61,20 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
 
 
 class TestGetWithRetry(SpotifyTestCase):
-    async def test_invalid_data(self) -> None:
-        for data in ["", {}, {"error": ""}]:
+    async def test_invalid_response(self) -> None:
+        for data in ["", {}]:
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = data
             spotify = Spotify("token")
-            with self.assertRaises(InvalidDataError):
+            with self.assertRaises(InvalidResponseError):
                 await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+
+    async def test_failed_request(self) -> None:
+        async with self.mock_session.get.return_value as mock_response:
+            mock_response.json.return_value = {"error": ""}
+        spotify = Spotify("token")
+        with self.assertRaises(FailedRequestError):
+            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
@@ -113,7 +126,6 @@ class TestShutdown(SpotifyTestCase):
 class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
     async def test_invalid_data(self) -> None:
         for data in [
-            {},
             {"items": None},
             {"items": [None]},
             {"items": [{}]},
@@ -145,7 +157,6 @@ class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
 class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
     async def test_invalid_data(self) -> None:
         for data in [
-            {},
             {"playlists": None},
             {"playlists": {}},
             {"playlists": {"items": None}},

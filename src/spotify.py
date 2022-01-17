@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import datetime
+import json
 import logging
 from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
@@ -16,6 +17,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+
+
+class InvalidResponseError(Exception):
+    pass
+
+
+class FailedRequestError(Exception):
+    pass
 
 
 class InvalidDataError(Exception):
@@ -49,12 +58,13 @@ class Spotify:
                     reason = "Server error"
                 else:
                     data = await response.json(content_type=None)
+                    context = json.dumps({"request": href, "response": data})
                     if not isinstance(data, dict):
-                        raise InvalidDataError(f"Invalid response: {data}")
+                        raise InvalidResponseError(f"Invalid response: {context}")
                     if not data:
-                        raise InvalidDataError(f"Empty response: {data}")
+                        raise InvalidResponseError(f"Empty response: {context}")
                     if "error" in data:
-                        raise InvalidDataError(f"Error response: {data}")
+                        raise FailedRequestError(f"Failed request: {context}")
                     return data
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
@@ -105,7 +115,7 @@ class Spotify:
             while href:
                 try:
                     data = await self._get_with_retry(href)
-                except InvalidDataError:
+                except FailedRequestError:
                     # Weirdly, some categories return 404
                     break
                 playlists = self._get_required(data, "playlists", dict)
