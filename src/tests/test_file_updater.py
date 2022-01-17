@@ -228,16 +228,24 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             self._helper(
                 playlist_id=PlaylistID("d"), name="alias (3)", num_followers=0
             ),
+            self._helper(
+                playlist_id=PlaylistID("e"), name="alias (3)", num_followers=0
+            ),
+            self._helper(
+                playlist_id=PlaylistID("f"), name="alias (3) (2)", num_followers=1
+            ),
         ]
         registry_dir = self.playlists_dir / "registry"
         registry_dir.mkdir(parents=True)
-        for playlist_id in "abcd":
+        for playlist_id in "abcdef":
             (registry_dir / playlist_id).touch()
         await self._update_files_impl()
         for playlist_id, name in [
             ("b", "alias"),
             ("c", "alias (2)"),
             ("d", "alias (3)"),
+            ("f", "alias (3) (2)"),
+            ("e", "alias (3) (3)"),
             ("a", "alias (4)"),
         ]:
             with open(self.playlists_dir / "plain" / playlist_id, "r") as f:
