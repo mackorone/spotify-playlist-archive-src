@@ -46,7 +46,12 @@ class Track:
 @dataclasses.dataclass(frozen=True)
 class Playlist:
     url: str
-    name: str
+    # The registered alias, else the name from Spotify, unmodified
+    original_name: str
+    # A unique name for the playlist, derived from the original name. In most
+    # cases, they should be the exact same. When multiple playlists share the
+    # same original name, duplicates have a unique suffix, e.g., " (2)".
+    unique_name: str
     description: str
     tracks: Sequence[Track]
     snapshot_id: str
@@ -61,8 +66,10 @@ class Playlist:
         playlist_url = playlist["url"]
         assert isinstance(playlist_url, str)
 
-        playlist_name = playlist["name"]
-        assert isinstance(playlist_name, str)
+        original_playlist_name = playlist["original_name"]
+        assert isinstance(original_playlist_name, str)
+        unique_playlist_name = playlist["unique_name"]
+        assert isinstance(unique_playlist_name, str)
 
         description = playlist["description"]
         assert isinstance(description, str)
@@ -135,7 +142,8 @@ class Playlist:
 
         return Playlist(
             url=playlist_url,
-            name=playlist_name,
+            original_name=original_playlist_name,
+            unique_name=unique_playlist_name,
             description=description,
             tracks=tracks,
             snapshot_id=snapshot_id,
@@ -247,7 +255,7 @@ class CumulativePlaylist:
 
         return CumulativePlaylist(
             url=playlist.url,
-            name=playlist.name,
+            name=playlist.unique_name,
             description=playlist.description,
             tracks=sorted(
                 updated_tracks,

@@ -391,7 +391,8 @@ class TestGetPlaylist(SpotifyTestCase):
             playlist = await spotify.get_playlist(
                 PlaylistID("abc123"), aliases={PlaylistID("abc123"): "alias"}
             )
-            self.assertEqual(playlist.name, "alias")
+            self.assertEqual(playlist.original_name, "alias")
+            self.assertEqual(playlist.unique_name, "alias")
 
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
     async def test_success(self, mock_get_tracks: AsyncMock) -> None:
@@ -436,7 +437,8 @@ class TestGetPlaylist(SpotifyTestCase):
             playlist,
             Playlist(
                 url="playlist_url",
-                name="playlist_name",
+                original_name="playlist_name",
+                unique_name="playlist_name",
                 description="playlist_description",
                 tracks=[track],
                 snapshot_id="playlist_snapshot_id",

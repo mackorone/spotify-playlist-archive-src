@@ -167,7 +167,13 @@ class Spotify:
 
         return Playlist(
             url=playlist_url,
-            name=name,
+            original_name=name,
+            # When fetched, playlists are presumed to have unique names. Later
+            # on, if duplicates are discovered, their unique names get updated
+            # so they can be differentiated. It's bit hacky, but it's easier
+            # than defining separate structs for playlists fetched from Spotify
+            # and playlists read from JSON.
+            unique_name=name,
             description=self._get_required(data, "description", str),
             tracks=await self._get_tracks(playlist_id),
             snapshot_id=self._get_required(data, "snapshot_id", str),

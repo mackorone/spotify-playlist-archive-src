@@ -36,7 +36,8 @@ class TestPlaylistToAndFromJSON(TestCase):
     def test_success(self) -> None:
         playlist = Playlist(
             url="playlist_url",
-            name="playlist_name",
+            original_name="playlist_original_name",
+            unique_name="playlist_unique_name",
             description="description",
             tracks=[
                 Track(
@@ -86,8 +87,8 @@ class TestPlaylistToAndFromJSON(TestCase):
                 """\
                 {
                   "description": "description",
-                  "name": "playlist_name",
                   "num_followers": 999,
+                  "original_name": "playlist_original_name",
                   "owner": {
                     "name": "owner_name",
                     "url": "owner_url"
@@ -127,6 +128,7 @@ class TestPlaylistToAndFromJSON(TestCase):
                       "url": ""
                     }
                   ],
+                  "unique_name": "playlist_unique_name",
                   "url": "playlist_url"
                 }"""
             ),
@@ -194,7 +196,8 @@ class TestCumulativePlaylistUpdate(TestCase):
                         today=today,
                         playlist=Playlist(
                             url="new_playlist_url",
-                            name="new_playlist_name",
+                            original_name="new_playlist_name",
+                            unique_name="new_playlist_name",
                             description="new_description",
                             tracks=[],
                             snapshot_id="new_snapshot_id",
@@ -256,7 +259,8 @@ class TestCumulativePlaylistUpdate(TestCase):
                     today=today,
                     playlist=Playlist(
                         url="new_playlist_url",
-                        name="new_playlist_name",
+                        original_name="new_playlist_name",
+                        unique_name="new_playlist_name",
                         description="new_description",
                         tracks=[
                             Track(
@@ -380,7 +384,8 @@ class TestCumulativePlaylistUpdate(TestCase):
                     today=today,
                     playlist=Playlist(
                         url="new_playlist_url",
-                        name="new_playlist_name",
+                        original_name="new_playlist_name",
+                        unique_name="new_playlist_name",
                         description="new_description",
                         tracks=[
                             Track(

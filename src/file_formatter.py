@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
-from typing import List, Mapping, NewType
+from typing import List, Mapping, NewType, Tuple
 
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist, Track
@@ -24,16 +24,16 @@ class Formatter:
 
     @classmethod
     def readme(cls, prev_content: str, playlists: Mapping[PlaylistID, Playlist]) -> str:
+        def _key(pair: Tuple[PlaylistID, Playlist]) -> Tuple[str, PlaylistID]:
+            return (pair[1].unique_name.lower(), pair[0])
+
         old_lines = prev_content.splitlines()
         index = old_lines.index("## Playlists")
         new_lines = old_lines[: index + 1]
         new_lines.append("")
-        for playlist_id, playlist in sorted(
-            playlists.items(),
-            key=lambda pair: (pair[1].name.lower(), pair[0]),
-        ):
+        for playlist_id, playlist in sorted(playlists.items(), key=_key):
             link = cls._link(
-                cls._escape_markdown(playlist.name), URL.pretty(playlist_id)
+                cls._escape_markdown(playlist.unique_name), URL.pretty(playlist_id)
             )
             new_lines.append(f"- {link}")
         return "\n".join(new_lines) + "\n"
@@ -43,7 +43,7 @@ class Formatter:
         lines = [cls._plain_line_from_track(track) for track in playlist.tracks]
         # Sort alphabetically to minimize changes when tracks are reordered
         sorted_lines = sorted(lines, key=lambda line: line.lower())
-        header = [playlist.name, playlist.description, ""]
+        header = [playlist.unique_name, playlist.description, ""]
         return "\n".join(header + sorted_lines)
 
     @classmethod
@@ -60,7 +60,7 @@ class Formatter:
         line_template = " {} ".join(vertical_separators)
         divider_line = "---".join(vertical_separators)
         lines = cls._markdown_header_lines(
-            playlist_name=playlist.name,
+            playlist_name=playlist.unique_name,
             playlist_url=playlist.url,
             playlist_id=playlist_id,
             playlist_description=playlist.description,

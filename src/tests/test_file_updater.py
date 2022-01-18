@@ -138,12 +138,13 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
     def _helper(
         cls,
         playlist_id: PlaylistID,
-        name: str,
+        original_name: str,
         num_followers: int,
     ) -> Playlist:
         return Playlist(
             url=f"url_{playlist_id}",
-            name=name,
+            original_name=original_name,
+            unique_name=original_name,
             description="description",
             tracks=[],
             snapshot_id="snapshot_id",
@@ -160,7 +161,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
     ) -> Playlist:
         return cls._helper(
             playlist_id=playlist_id,
-            name=aliases.get(playlist_id) or f"name_{playlist_id}",
+            original_name=aliases.get(playlist_id) or f"name_{playlist_id}",
             num_followers=0,
         )
 
@@ -222,17 +223,25 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
     async def test_duplicate_playlist_names(self) -> None:
         self.mock_spotify.get_playlist.side_effect = [
-            self._helper(playlist_id=PlaylistID("a"), name="alias", num_followers=1),
-            self._helper(playlist_id=PlaylistID("b"), name="alias", num_followers=2),
-            self._helper(playlist_id=PlaylistID("c"), name="alias", num_followers=2),
             self._helper(
-                playlist_id=PlaylistID("d"), name="alias (3)", num_followers=0
+                playlist_id=PlaylistID("a"), original_name="name", num_followers=1
             ),
             self._helper(
-                playlist_id=PlaylistID("e"), name="alias (3)", num_followers=0
+                playlist_id=PlaylistID("b"), original_name="name", num_followers=2
             ),
             self._helper(
-                playlist_id=PlaylistID("f"), name="alias (3) (2)", num_followers=1
+                playlist_id=PlaylistID("c"), original_name="name", num_followers=2
+            ),
+            self._helper(
+                playlist_id=PlaylistID("d"), original_name="name (3)", num_followers=0
+            ),
+            self._helper(
+                playlist_id=PlaylistID("e"), original_name="name (3)", num_followers=0
+            ),
+            self._helper(
+                playlist_id=PlaylistID("f"),
+                original_name="name (3) (2)",
+                num_followers=1,
             ),
         ]
         registry_dir = self.playlists_dir / "registry"
@@ -241,12 +250,12 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             (registry_dir / playlist_id).touch()
         await self._update_files_impl()
         for playlist_id, name in [
-            ("b", "alias"),
-            ("c", "alias (2)"),
-            ("d", "alias (3)"),
-            ("f", "alias (3) (2)"),
-            ("e", "alias (3) (3)"),
-            ("a", "alias (4)"),
+            ("b", "name"),
+            ("c", "name (2)"),
+            ("d", "name (3)"),
+            ("f", "name (3) (2)"),
+            ("e", "name (3) (3)"),
+            ("a", "name (4)"),
         ]:
             with open(self.playlists_dir / "plain" / playlist_id, "r") as f:
                 lines = f.read().splitlines()
@@ -304,7 +313,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             path = pretty_dir / f"{playlist_id}.json"
             playlist = self._helper(
                 playlist_id=PlaylistID(playlist_id),
-                name=f"name_{playlist_id}",
+                original_name=f"name_{playlist_id}",
                 num_followers=0,
             )
             playlist_json = playlist.to_json()

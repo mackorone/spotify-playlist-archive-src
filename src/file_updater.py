@@ -124,17 +124,17 @@ class FileUpdater:
         logger.info("Done fetching playlists")
 
         # Gracefully handle playlists with the same name
-        playlist_names_to_ids = collections.defaultdict(set)
+        original_playlist_names_to_ids = collections.defaultdict(set)
         for playlist_id, playlist in playlists.items():
-            playlist_names_to_ids[playlist.name].add(playlist_id)
+            original_playlist_names_to_ids[playlist.original_name].add(playlist_id)
         duplicate_names = {
             name: playlist_ids
-            for name, playlist_ids in playlist_names_to_ids.items()
+            for name, playlist_ids in original_playlist_names_to_ids.items()
             if len(playlist_ids) > 1
         }
         if duplicate_names:
             logger.info("Handling duplicate names")
-        for name, playlist_ids in sorted(duplicate_names.items()):
+        for original_name, playlist_ids in sorted(duplicate_names.items()):
             sorted_by_num_followers = sorted(
                 playlist_ids,
                 # Sort by num_followers desc, playlist_id asc
@@ -145,18 +145,19 @@ class FileUpdater:
             )
             for i, playlist_id in enumerate(sorted_by_num_followers):
                 if i == 0:
-                    logger.info(f"  {playlist_id}: {name}")
+                    logger.info(f"  {playlist_id}: {original_name}")
                     continue
                 suffix = 2
-                new_name = f"{name} ({suffix})"
-                while any(p.name == new_name for p in playlists.values()):
+                unique_name = f"{original_name} ({suffix})"
+                while any(p.unique_name == unique_name for p in playlists.values()):
                     suffix += 1
-                    new_name = f"{name} ({suffix})"
-                logger.info(f"  {playlist_id}: {new_name}")
+                    unique_name = f"{original_name} ({suffix})"
+                logger.info(f"  {playlist_id}: {unique_name}")
                 playlist = playlists[playlist_id]
                 playlists[playlist_id] = Playlist(
                     url=playlist.url,
-                    name=new_name,
+                    original_name=original_name,
+                    unique_name=unique_name,
                     description=playlist.description,
                     tracks=playlist.tracks,
                     snapshot_id=playlist.snapshot_id,
@@ -168,7 +169,7 @@ class FileUpdater:
         logger.info(f"Updating {len(playlists)} playlists...")
         for playlist_id, playlist in sorted(playlists.items()):
             logger.info(f"Playlist ID: {playlist_id}")
-            logger.info(f"Playlist name: {playlist.name}")
+            logger.info(f"Playlist name: {playlist.unique_name}")
 
             plain_path = plain_dir / playlist_id
             pretty_md_path = pretty_dir / f"{playlist_id}.md"
