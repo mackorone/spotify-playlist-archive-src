@@ -11,15 +11,22 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
-    - When playlists are added, only fetch/update those files
     - Don't update snapshot ID if no other changes
     - https://next.github.com/projects/flat-data
 
 - Codebase
     - More unit tests for playlist updater
+        - only_fetch_these_playlists
     - Fix code complexity of playlist updater
     - Write wrapper class for path-related logic
         - Add getter methods for all paths
         - Only registry dir should be enumerable
+    - Separate class for SpotifyPlaylist
+        - No concept of "original" vs "unique" name
+        - Consider using library for serialization
+    - Refactor committer to use GitUtils, add tests
     - Merge cumulative regeneration code
     - Measure code coverage and add missing tests
+        - .coveragerc file should include:
+          [report]
+          exclude_lines = @external

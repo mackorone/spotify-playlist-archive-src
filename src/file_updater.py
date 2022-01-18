@@ -4,10 +4,11 @@ import collections
 import datetime
 import logging
 import pathlib
-from typing import Dict, Mapping, Set
+from typing import Dict, Mapping, Optional, Set
 
 from environment import Environment
 from file_formatter import Formatter
+from git_utils import GitUtils
 from github import GitHub
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
@@ -71,8 +72,25 @@ class FileUpdater:
         for path in [registry_dir, plain_dir, pretty_dir, cumulative_dir]:
             path.mkdir(parents=True, exist_ok=True)
 
+        # Optimization: if the last commit only touched the registry, only the
+        # touched playlists will generate downstream changes, so only fetch
+        # those playlists. This makes adding new playlists cheap.
+        logger.info("Checking if last commit was registry-only")
+        only_fetch_these_playlists: Optional[Set[PlaylistID]] = None
+        uncommitted_changes = GitUtils.any_uncommitted_changes()
+        last_commit_content = GitUtils.get_last_commit_content()
+        # To prevent suprising behavior when testing locally, don't perform the
+        # optimization if there are local changes
+        if (not uncommitted_changes) and all(
+            path.startswith("playlists/registry") for path in last_commit_content
+        ):
+            only_fetch_these_playlists = {
+                PlaylistID(pathlib.Path(path).name) for path in last_commit_content
+            }
+            logger.info(f"Only fetch these playlists: {only_fetch_these_playlists}")
+
         # Automatically register select playlists
-        if auto_register:
+        if auto_register and only_fetch_these_playlists is not None:
             await cls._auto_register(registry_dir, spotify)
 
         # Determine which playlists to scrape from the files in
@@ -104,11 +122,12 @@ class FileUpdater:
                 playlists[playlist_id] = Playlist.from_json(prev_content)
 
         # Update playlist data from Spotify
-        logger.info(f"Fetching {len(playlist_id_to_path)} playlists...")
-        for i, playlist_id in enumerate(sorted(playlist_id_to_path)):
-            denominator = str(len(playlist_id_to_path))
+        playlists_to_fetch = sorted(only_fetch_these_playlists or playlist_id_to_path)
+        logger.info(f"Fetching {len(playlists_to_fetch)} playlist(s)...")
+        for i, playlist_id in enumerate(sorted(playlists_to_fetch)):
+            denominator = str(len(playlists_to_fetch))
             numerator = str(i).rjust(len(denominator))
-            progress_fraction = i / len(playlist_id_to_path)
+            progress_fraction = i / len(playlists_to_fetch)
             progress_percent = f"{progress_fraction:.1%}".rjust(5)
             logger.info(
                 f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
@@ -165,9 +184,26 @@ class FileUpdater:
                     owner=playlist.owner,
                 )
 
+        # If we only fetched certain playlists, we only need to update those
+        # playlists along with any playlists that share the same name (their
+        # unique names may have changed)
+        if only_fetch_these_playlists:
+            possibly_affected_playlists = only_fetch_these_playlists
+            for original_name, playlist_ids in duplicate_names.items():
+                # If any intersection, include all playlists
+                if only_fetch_these_playlists & playlist_ids:
+                    possibly_affected_playlists |= playlist_ids
+            playlists_to_update = {
+                playlist_id: playlist
+                for playlist_id, playlist in playlists.items()
+                if playlist_id in possibly_affected_playlists
+            }
+        else:
+            playlists_to_update = playlists
+
         # Process the playlists
-        logger.info(f"Updating {len(playlists)} playlists...")
-        for playlist_id, playlist in sorted(playlists.items()):
+        logger.info(f"Updating {len(playlists_to_update)} playlists...")
+        for playlist_id, playlist in sorted(playlists_to_update.items()):
             logger.info(f"Playlist ID: {playlist_id}")
             logger.info(f"Playlist name: {playlist.unique_name}")
 

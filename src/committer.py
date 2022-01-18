@@ -2,10 +2,10 @@
 
 import datetime
 import logging
-import subprocess
-from typing import Sequence
 
 from environment import Environment
+from git_utils import GitUtils
+from subprocess_utils import SubprocessUtils
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -13,9 +13,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class Committer:
     @classmethod
     def push_updates(cls, now: datetime.datetime) -> None:
-        diff = cls._run(["git", "status", "-s"])
-        has_changes = bool(diff.stdout)
-
+        has_changes = GitUtils.any_uncommitted_changes()
         if not has_changes:
             logger.info("No changes, not pushing")
             return
@@ -23,8 +21,12 @@ class Committer:
         logger.info("Configuring git")
 
         config = ["git", "config", "--global"]
-        config_name = cls._run(config + ["user.name", "Mack Ward (Bot Account)"])
-        config_email = cls._run(config + ["user.email", "mackorone.bot@gmail.com"])
+        config_name = SubprocessUtils.run(
+            config + ["user.name", "Mack Ward (Bot Account)"]
+        )
+        config_email = SubprocessUtils.run(
+            config + ["user.email", "mackorone.bot@gmail.com"]
+        )
 
         if config_name.returncode != 0:
             raise Exception("Failed to configure name")
@@ -33,7 +35,7 @@ class Committer:
 
         logger.info("Staging changes")
 
-        add = cls._run(["git", "add", "-A"])
+        add = SubprocessUtils.run(["git", "add", "-A"])
         if add.returncode != 0:
             raise Exception("Failed to stage changes")
 
@@ -42,17 +44,17 @@ class Committer:
         run_number = Environment.get_env("GITHUB_RUN_NUMBER")
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         message = f"[skip ci] Run: {run_number} ({now_str})"
-        commit = cls._run(["git", "commit", "-m", message])
+        commit = SubprocessUtils.run(["git", "commit", "-m", message])
         if commit.returncode != 0:
             raise Exception("Failed to commit changes")
 
         logger.info("Rebasing onto main")
-        rebase = cls._run(["git", "rebase", "HEAD", "main"])
+        rebase = SubprocessUtils.run(["git", "rebase", "HEAD", "main"])
         if rebase.returncode != 0:
             raise Exception("Failed to rebase onto main")
 
         logger.info("Removing origin")
-        remote_rm = cls._run(["git", "remote", "rm", "origin"])
+        remote_rm = SubprocessUtils.run(["git", "remote", "rm", "origin"])
         if remote_rm.returncode != 0:
             raise Exception("Failed to remove origin")
 
@@ -63,22 +65,11 @@ class Committer:
             f"https://mackorone-bot:{token}@github.com/mackorone/"
             "spotify-playlist-archive.git"
         )
-        remote_add = cls._run(["git", "remote", "add", "origin", url])
+        remote_add = SubprocessUtils.run(["git", "remote", "add", "origin", url])
         if remote_add.returncode != 0:
             raise Exception("Failed to add new origin")
 
         logger.info("Pushing changes")
-        push = cls._run(["git", "push", "origin", "main"])
+        push = SubprocessUtils.run(["git", "push", "origin", "main"])
         if push.returncode != 0:
             raise Exception("Failed to push changes")
-
-    @classmethod
-    def _run(cls, args: Sequence[str]) -> subprocess.CompletedProcess:  # pyre-fixme[24]
-        logger.info(f"- Running: {args}")
-        result = subprocess.run(
-            args=args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        logger.info(f"- Exited with: {result.returncode}")
-        return result

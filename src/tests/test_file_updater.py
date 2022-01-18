@@ -108,6 +108,20 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.mock_get_published_cumulative_playlists = patcher.start()
         self.addCleanup(patcher.stop)
 
+        # Mock the GitUtils methods
+        patcher = patch(
+            "git_utils.GitUtils.any_uncommitted_changes",
+            return_value=False,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = patch(
+            "git_utils.GitUtils.get_last_commit_content",
+            return_value=[],
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
         # Mock the spotify class
         patcher = patch("file_updater.Spotify")
         self.mock_spotify_class = patcher.start()
