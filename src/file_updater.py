@@ -78,7 +78,9 @@ class FileUpdater:
         logger.info("Checking if last commit was registry-only")
         only_fetch_these_playlists: Optional[Set[PlaylistID]] = None
         uncommitted_changes = GitUtils.any_uncommitted_changes()
+        logger.info(f"- Uncommitted changes: {uncommitted_changes}")
         last_commit_content = GitUtils.get_last_commit_content()
+        logger.info(f"- Last commit content: {last_commit_content}")
         # To prevent suprising behavior when testing locally, don't perform the
         # optimization if there are local changes
         if (not uncommitted_changes) and all(
