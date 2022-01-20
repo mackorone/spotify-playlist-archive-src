@@ -115,12 +115,6 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
         patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = patch(
-            "git_utils.GitUtils.get_last_commit_content",
-            return_value=[],
-        )
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
         # Mock the spotify class
         patcher = patch("file_updater.Spotify")

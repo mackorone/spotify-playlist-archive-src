@@ -8,7 +8,6 @@ from typing import Dict, Mapping, Optional, Set
 
 from environment import Environment
 from file_formatter import Formatter
-from git_utils import GitUtils
 from github import GitHub
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
@@ -77,22 +76,17 @@ class FileUpdater:
         # those playlists. This makes adding new playlists cheap.
         logger.info("Checking if last commit was registry-only")
         only_fetch_these_playlists: Optional[Set[PlaylistID]] = None
-        uncommitted_changes = GitUtils.any_uncommitted_changes()
-        logger.info(f"- Uncommitted changes: {uncommitted_changes}")
-        last_commit_content = GitUtils.get_last_commit_content()
-        logger.info(f"- Last commit content: {last_commit_content}")
-        # To prevent suprising behavior when testing locally, don't perform the
-        # optimization if there are local changes
-        if (not uncommitted_changes) and all(
-            path.startswith("playlists/registry") for path in last_commit_content
-        ):
+        # TODO
+        # if all(path.startswith("playlists/registry") for path in ...)
+        last_commit_content = []
+        if False:
             only_fetch_these_playlists = {
                 PlaylistID(pathlib.Path(path).name) for path in last_commit_content
             }
             logger.info(f"Only fetch these playlists: {only_fetch_these_playlists}")
 
         # Automatically register select playlists
-        if auto_register and only_fetch_these_playlists is not None:
+        if auto_register:
             await cls._auto_register(registry_dir, spotify)
 
         # Determine which playlists to scrape from the files in
