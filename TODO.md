@@ -11,10 +11,6 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
-    - Only update playlists that are newly registered
-        - Need to use special GitHub actions fields: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#push
-        - Test playlists: https://audiohype.io/resources/the-best-spotify-playlists/
-        - https://github.com/nektos/act
     - Don't update snapshot ID if no other changes
     - https://next.github.com/projects/flat-data
 
