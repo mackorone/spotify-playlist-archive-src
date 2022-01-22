@@ -168,7 +168,11 @@ class FileUpdater:
                     continue
                 suffix = 2
                 unique_name = f"{original_name} ({suffix})"
-                while any(p.unique_name == unique_name for p in playlists.values()):
+                while any(
+                    other_playlist_id != playlist_id
+                    and other_playlist.unique_name == unique_name
+                    for other_playlist_id, other_playlist in playlists.items()
+                ):
                     suffix += 1
                     unique_name = f"{original_name} ({suffix})"
                 logger.info(f"  {playlist_id}: {unique_name}")
@@ -202,7 +206,7 @@ class FileUpdater:
             playlists_to_update = playlists
 
         # Process the playlists
-        logger.info(f"Updating {len(playlists_to_update)} playlists...")
+        logger.info(f"Updating {len(playlists_to_update)} playlist(s)...")
         for playlist_id, playlist in sorted(playlists_to_update.items()):
             logger.info(f"Playlist ID: {playlist_id}")
             logger.info(f"Playlist name: {playlist.unique_name}")
