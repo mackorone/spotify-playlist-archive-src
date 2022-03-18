@@ -4,7 +4,7 @@ import logging
 import subprocess
 from typing import List
 
-from plants.external.external import external
+from plants.external import external
 
 logger: logging.Logger = logging.getLogger(__name__)
 

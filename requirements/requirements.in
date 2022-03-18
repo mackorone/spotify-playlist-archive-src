@@ -1,3 +1,3 @@
--r ../src/plants/external/requirements.in
+-r ../src/plants/requirements.in
 
 aiohttp

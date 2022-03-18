@@ -5,10 +5,10 @@ import asyncio
 import datetime
 import logging
 
-from committer import Committer
 from environment import Environment
 from file_updater import FileUpdater
-from plants.external.external import allow_external_calls
+from plants.external import allow_external_calls
+from plants.committer import Committer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ async def main() -> None:
         update_readme=commit_and_push,
     )
     if commit_and_push:
-        Committer.push_updates(now=now)
+        Committer.commit_and_push_if_github_actions()
 
     logger.info("Done")
 

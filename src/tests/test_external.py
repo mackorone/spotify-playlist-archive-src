@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from plants.external.external import InvalidExternalCallError, external
+from plants.external import InvalidExternalCallError, external
 
 
 class TestExternal(TestCase):

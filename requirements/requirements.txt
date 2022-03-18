@@ -21,7 +21,7 @@ multidict==5.1.0
 mypy-extensions==0.4.3
     # via typing-inspect
 pyre-extensions==0.0.21
-    # via -r requirements/../src/plants/external/requirements.in
+    # via -r requirements/../src/plants/requirements.in
 typing-extensions==3.7.4.3
     # via
     #   aiohttp

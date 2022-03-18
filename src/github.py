@@ -7,7 +7,7 @@ from typing import Dict, List
 
 import aiohttp
 
-from plants.external.external import external
+from plants.external import external
 from playlist_id import PlaylistID
 
 logger: logging.Logger = logging.getLogger(__name__)

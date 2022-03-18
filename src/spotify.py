@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
 import aiohttp
 
-from plants.external.external import external
+from plants.external import external
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
 
