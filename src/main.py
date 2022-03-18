@@ -7,8 +7,8 @@ import logging
 
 from committer import Committer
 from environment import Environment
-from external import allow_external_calls
 from file_updater import FileUpdater
+from plants.external.external import allow_external_calls
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)

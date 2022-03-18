@@ -4,7 +4,7 @@ import os
 import pathlib
 from typing import NewType, Optional
 
-from external import external
+from plants.external.external import external
 
 SimplifiedPath = NewType("SimplifiedPath", pathlib.Path)
 

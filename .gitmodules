@@ -1,0 +1,3 @@
+[submodule "plants"]
+	path = src/plants
+	url = git@github.com:mackorone/plants.git
