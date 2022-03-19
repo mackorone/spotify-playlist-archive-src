@@ -6,10 +6,10 @@ import logging
 import pathlib
 from typing import Dict, Mapping, Optional, Set
 
-from environment import Environment
 from file_formatter import Formatter
 from git_utils import GitUtils
 from github import GitHub
+from plants.environment import Environment
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
 from spotify import FailedRequestError, Spotify

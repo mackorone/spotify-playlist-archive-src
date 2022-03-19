@@ -16,7 +16,7 @@ from spotify import (
     RetryBudgetExceededError,
     Spotify,
 )
-from unittest_utils import UnittestUtils
+from plants.unittest_utils import UnittestUtils
 
 
 class MockSession(AsyncMock):

@@ -5,16 +5,12 @@ import pathlib
 from typing import NewType, Optional
 
 from plants.external import external
+from plants.environment import Environment as PlantsEnvironment
 
 SimplifiedPath = NewType("SimplifiedPath", pathlib.Path)
 
 
 class Environment:
-    @classmethod
-    @external
-    def get_env(cls, name: str) -> Optional[str]:
-        return os.getenv(name)
-
     @classmethod
     def get_prod_playlists_dir(cls) -> SimplifiedPath:
         return cls._simplify(cls._get_repo_dir() / "playlists")
@@ -30,7 +26,7 @@ class Environment:
     @classmethod
     @external
     def _get_repo_dir(cls) -> SimplifiedPath:
-        repo_dir = pathlib.Path(__file__).resolve().parent.parent
+        repo_dir = PlantsEnvironment.get_repo_root()
         assert repo_dir.name == "spotify-playlist-archive"
         return cls._simplify(repo_dir)
 

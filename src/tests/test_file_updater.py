@@ -12,7 +12,7 @@ from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
 from spotify import FailedRequestError
-from unittest_utils import UnittestUtils
+from plants.unittest_utils import UnittestUtils
 
 T = TypeVar("T")
 
@@ -30,7 +30,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         self.mock_get_env = self._patch(
-            "environment.Environment.get_env",
+            "plants.environment.Environment.get_env",
             new_callable=Mock,
         )
         self.mock_get_env.side_effect = lambda name: {
