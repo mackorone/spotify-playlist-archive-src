@@ -39,7 +39,7 @@ class Spotify:
         headers = {"Authorization": f"Bearer {access_token}"}
         self._session: aiohttp.ClientSession = self._get_session(headers=headers)
         # Handle rate limiting by retrying
-        self._retry_budget_seconds: int = 30
+        self._retry_budget_seconds: int = 300
 
     async def _get_with_retry(self, href: str) -> Dict[str, Any]:
         while True:
