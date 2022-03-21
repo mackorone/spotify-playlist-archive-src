@@ -7,16 +7,15 @@ import datetime
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
+from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import (
     FailedRequestError,
     InvalidDataError,
-    InvalidResponseError,
     RetryBudgetExceededError,
     Spotify,
 )
-from plants.unittest_utils import UnittestUtils
 
 
 class MockSession(AsyncMock):
@@ -62,12 +61,14 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
 
 
 class TestGetWithRetry(SpotifyTestCase):
-    async def test_invalid_response(self) -> None:
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_invalid_response(self, mock_logger: Mock) -> None:
         for data in ["", {}]:
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = data
             spotify = Spotify("token")
-            with self.assertRaises(InvalidResponseError):
+            with self.assertRaises(RetryBudgetExceededError):
                 await spotify.get_playlist(PlaylistID("abc123"), aliases={})
 
     async def test_failed_request(self) -> None:

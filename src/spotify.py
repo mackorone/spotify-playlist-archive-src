@@ -19,10 +19,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class InvalidResponseError(Exception):
-    pass
-
-
 class FailedRequestError(Exception):
     pass
 
@@ -60,12 +56,15 @@ class Spotify:
                     data = await response.json(content_type=None)
                     context = json.dumps({"request": href, "response": data})
                     if not isinstance(data, dict):
-                        raise InvalidResponseError(f"Invalid response: {context}")
-                    if not data:
-                        raise InvalidResponseError(f"Empty response: {context}")
-                    if "error" in data:
+                        backoff_seconds = 1
+                        reason = "Invalid response"
+                    elif not data:
+                        backoff_seconds = 1
+                        reason = "Empty response"
+                    elif "error" in data:
                         raise FailedRequestError(f"Failed request: {context}")
-                    return data
+                    else:
+                        return data
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
                     raise RetryBudgetExceededError("Retry budget exceeded")

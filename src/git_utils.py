@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
+import subprocess
 from typing import List, Sequence
 
 from plants.subprocess_utils import SubprocessUtils
 
 logger: logging.Logger = logging.getLogger(__name__)
+
 
 class GitUtils:
     @classmethod
@@ -16,9 +18,7 @@ class GitUtils:
     @classmethod
     def get_last_commit_content(cls) -> List[str]:
         """Get files affected by the most recent commit"""
-        result = cls._run(
-            ["git", "log", "--name-only", "--pretty=format:", "-1"]
-        )
+        result = cls._run(["git", "log", "--name-only", "--pretty=format:", "-1"])
         return result.stdout.splitlines()
 
     @classmethod

@@ -2,10 +2,10 @@
 
 import os
 import pathlib
-from typing import NewType, Optional
+from typing import NewType
 
-from plants.external import external
 from plants.environment import Environment as PlantsEnvironment
+from plants.external import external
 
 SimplifiedPath = NewType("SimplifiedPath", pathlib.Path)
 

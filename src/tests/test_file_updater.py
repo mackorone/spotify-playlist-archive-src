@@ -9,10 +9,10 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 
 from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
+from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
 from spotify import FailedRequestError
-from plants.unittest_utils import UnittestUtils
 
 T = TypeVar("T")
 
