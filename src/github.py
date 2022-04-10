@@ -36,7 +36,7 @@ class GitHub:
         content = base64.b64decode(data["content"])
         playlists = json.loads(content)
         published_cumulative_playlists: Dict[PlaylistID, List[PlaylistID]] = {}
-        for playlist in playlists["playlists"]:
+        for playlist in playlists["mappings"]:
             scraped_playlist_id = PlaylistID(playlist["scraped_playlist_id"])
             published_cumulative_playlists[scraped_playlist_id] = [
                 PlaylistID(playlist_id)
