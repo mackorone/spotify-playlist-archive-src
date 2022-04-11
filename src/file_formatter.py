@@ -3,11 +3,10 @@
 import datetime
 from typing import List, Mapping, NewType, Tuple
 
+from plants.markdown import MarkdownEscapedString
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist, Track
 from url import URL
-
-EscapedText = NewType("EscapedText", str)
 
 
 class Formatter:
@@ -33,7 +32,7 @@ class Formatter:
         new_lines.append("")
         for playlist_id, playlist in sorted(playlists.items(), key=_key):
             link = cls._link(
-                cls._escape_markdown(playlist.unique_name), URL.pretty(playlist_id)
+                MarkdownEscapedString(playlist.unique_name), URL.pretty(playlist_id)
             )
             new_lines.append(f"- {link}")
         return "\n".join(new_lines) + "\n"
@@ -75,7 +74,7 @@ class Formatter:
         lines += [
             "{} - {} - {} - {}".format(
                 cls._link(
-                    cls._escape_markdown(playlist.owner.name), playlist.owner.url
+                    MarkdownEscapedString(playlist.owner.name), playlist.owner.url
                 ),
                 num_likes_string,
                 f"{num_songs:,} song" + ("s" if num_songs > 1 else ""),
@@ -92,14 +91,14 @@ class Formatter:
             lines.append(
                 line_template.format(
                     i + 1,
-                    cls._link(cls._escape_markdown(track.name), track.url),
+                    cls._link(MarkdownEscapedString(track.name), track.url),
                     cls.ARTIST_SEPARATOR.join(
                         [
-                            cls._link(cls._escape_markdown(artist.name), artist.url)
+                            cls._link(MarkdownEscapedString(artist.name), artist.url)
                             for artist in track.artists
                         ]
                     ),
-                    cls._link(cls._escape_markdown(track.album.name), track.album.url),
+                    cls._link(MarkdownEscapedString(track.album.name), track.album.url),
                     cls._format_duration(track.duration_ms),
                 )
             )
@@ -150,7 +149,7 @@ class Formatter:
         if len(published_ids) > 1:
             joined = ", ".join(
                 cls._link(
-                    cls._escape_markdown(f"part {i + 1}"),
+                    MarkdownEscapedString(f"part {i + 1}"),
                     f"https://open.spotify.com/playlist/{playlist_id}",
                 )
                 for i, playlist_id in enumerate(published_ids)
@@ -164,16 +163,16 @@ class Formatter:
             lines.append(
                 line_template.format(
                     # Title
-                    cls._link(cls._escape_markdown(track.name), track.url),
+                    cls._link(MarkdownEscapedString(track.name), track.url),
                     # Artists
                     cls.ARTIST_SEPARATOR.join(
                         [
-                            cls._link(cls._escape_markdown(artist.name), artist.url)
+                            cls._link(MarkdownEscapedString(artist.name), artist.url)
                             for artist in track.artists
                         ]
                     ),
                     # Album
-                    cls._link(cls._escape_markdown(track.album.name), track.album.url),
+                    cls._link(MarkdownEscapedString(track.album.name), track.album.url),
                     # Length
                     cls._format_duration(track.duration_ms),
                     # Added
@@ -201,28 +200,28 @@ class Formatter:
         is_cumulative: bool,
     ) -> List[str]:
         if is_cumulative:
-            pretty = cls._link(EscapedText("pretty"), URL.pretty(playlist_id))
+            pretty = cls._link(MarkdownEscapedString("pretty"), URL.pretty(playlist_id))
             cumulative = "cumulative"
         else:
             pretty = "pretty"
             cumulative = cls._link(
-                EscapedText("cumulative"), URL.cumulative(playlist_id)
+                MarkdownEscapedString("cumulative"), URL.cumulative(playlist_id)
             )
 
         return [
             "{} - {} - {} - {}".format(
                 pretty,
                 cumulative,
-                cls._link(EscapedText("plain"), URL.plain(playlist_id)),
-                cls._link(EscapedText("githistory"), URL.plain_history(playlist_id)),
+                cls._link(MarkdownEscapedString("plain"), URL.plain(playlist_id)),
+                cls._link(MarkdownEscapedString("githistory"), URL.plain_history(playlist_id)),
             ),
             "",
             "### {}".format(
-                cls._link(cls._escape_markdown(playlist_name), playlist_url)
+                cls._link(MarkdownEscapedString(playlist_name), playlist_url)
             ),
             "",
             # Some descriptions end with newlines, strip to clean them up
-            "> {}".format(cls._escape_markdown(playlist_description.strip())),
+            "> {}".format(MarkdownEscapedString(playlist_description.strip())),
             "",
         ]
 
@@ -235,7 +234,7 @@ class Formatter:
         )
 
     @classmethod
-    def _link(cls, text: EscapedText, url: str) -> str:
+    def _link(cls, text: MarkdownEscapedString, url: str) -> str:
         if not url:
             return text
         return "[{}]({})".format(text, url)
@@ -274,25 +273,3 @@ class Formatter:
         if not days:
             return f"{hours} hr {minutes} min"
         return f"{days:,} day {hours} hr {minutes} min"
-
-    @classmethod
-    def _escape_markdown(cls, text: str) -> EscapedText:
-        text = text.replace("\n", "<br/>")
-        for pattern in [
-            "\\",  # Existing backslashes
-            ". ",  # Numbered lists
-            "#",  # Headers
-            "(",  # Links
-            ")",  # Links
-            "[",  # Links
-            "]",  # Links
-            "-",  # Bulleted lists
-            "*",  # Bulleted lists and emphasis
-            "_",  # Emphasis
-            "`",  # Code
-            "|",  # Tables
-            "~",  # Strikethrough
-        ]:
-            text = text.replace(pattern, f"\\{pattern}")
-
-        return EscapedText(text)
