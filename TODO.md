@@ -11,7 +11,6 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
-    - Don't update snapshot ID if no other changes
     - Debug perf issues: https://github.com/github/git-sizer
         - Add intermediate directories to playlist dirs
         - (Maybe) delete old cumulative playlist blobs
