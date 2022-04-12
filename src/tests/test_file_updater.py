@@ -327,7 +327,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             path = pretty_dir / f"{playlist_id}.json"
             playlist = self._helper(
                 playlist_id=PlaylistID(playlist_id),
-                original_name=f"name_{playlist_id}",
+                original_name=f" name_{playlist_id} ",  # ensure whitespace is stripped
                 num_followers=0,
             )
             playlist_json = playlist.to_json()

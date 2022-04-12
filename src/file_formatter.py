@@ -23,18 +23,14 @@ class Formatter:
 
     @classmethod
     def readme(cls, prev_content: str, playlists: Mapping[PlaylistID, Playlist]) -> str:
-        def _key(pair: Tuple[PlaylistID, Playlist]) -> Tuple[str, PlaylistID]:
-            return (pair[1].unique_name.lower(), pair[0])
-
         old_lines = prev_content.splitlines()
         index = old_lines.index("## Playlists")
-        new_lines = old_lines[: index + 1]
-        new_lines.append("")
-        for playlist_id, playlist in sorted(playlists.items(), key=_key):
-            link = cls._link(
-                MarkdownEscapedString(playlist.unique_name), URL.pretty(playlist_id)
-            )
-            new_lines.append(f"- {link}")
+        playlist_lines: List[str] = []
+        for playlist_id, playlist in playlists.items():
+            name = MarkdownEscapedString(playlist.unique_name.strip())
+            link = cls._link(name, URL.pretty(playlist_id))
+            playlist_lines.append(f"- {link}")
+        new_lines = old_lines[: index + 1] + [""] + sorted(playlist_lines)
         return "\n".join(new_lines) + "\n"
 
     @classmethod
@@ -237,7 +233,7 @@ class Formatter:
     def _link(cls, text: MarkdownEscapedString, url: str) -> str:
         if not url:
             return text
-        return "[{}]({})".format(text, url)
+        return f"[{text}]({url})"
 
     @classmethod
     def _format_duration(cls, duration_ms: int) -> str:
