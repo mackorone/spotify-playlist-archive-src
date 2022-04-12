@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
-from typing import List, Mapping, NewType, Tuple
+from typing import List, Mapping
 
 from plants.markdown import MarkdownEscapedString
 from playlist_id import PlaylistID
@@ -209,7 +209,9 @@ class Formatter:
                 pretty,
                 cumulative,
                 cls._link(MarkdownEscapedString("plain"), URL.plain(playlist_id)),
-                cls._link(MarkdownEscapedString("githistory"), URL.plain_history(playlist_id)),
+                cls._link(
+                    MarkdownEscapedString("githistory"), URL.plain_history(playlist_id)
+                ),
             ),
             "",
             "### {}".format(
