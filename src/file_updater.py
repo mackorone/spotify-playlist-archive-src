@@ -230,7 +230,7 @@ class FileUpdater:
             prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
-                content=playlist.to_json(),
+                content=playlist.to_json() + "\n",
                 path=pretty_json_path,
             )
 
@@ -261,7 +261,7 @@ class FileUpdater:
             new_struct = prev_struct.update(today, playlist, published_ids)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
-                content=new_struct.to_json(),
+                content=new_struct.to_json() + "\n",
                 path=cumulative_json_path,
             )
 
@@ -356,7 +356,7 @@ class FileUpdater:
     def _get_file_content_or_empty_string(cls, path: pathlib.Path) -> str:
         try:
             with open(path, "r") as f:
-                return "".join(f.readlines())
+                return f.read()
         except FileNotFoundError:
             return ""
 

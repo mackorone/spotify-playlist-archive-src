@@ -39,7 +39,7 @@ class Formatter:
         # Sort alphabetically to minimize changes when tracks are reordered
         sorted_lines = sorted(lines, key=lambda line: line.lower())
         header = [playlist.unique_name, playlist.description, ""]
-        return "\n".join(header + sorted_lines)
+        return "\n".join(header + sorted_lines) + "\n"
 
     @classmethod
     def pretty(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
@@ -102,7 +102,7 @@ class Formatter:
         lines.append("")
         lines.append(f"Snapshot ID: `{playlist.snapshot_id}`")
 
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"
 
     @classmethod
     def cumulative(
@@ -184,7 +184,7 @@ class Formatter:
             "Prior content cannot be recovered."
         )
 
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"
 
     @classmethod
     def _markdown_header_lines(
