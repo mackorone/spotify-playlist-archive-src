@@ -54,6 +54,10 @@ class Playlist:
     unique_name: str
     description: str
     tracks: Sequence[Track]
+    # The unqiue identifier for a particular playlist version. Note that for
+    # certain personalized playlists, snapshot ID changes with every request
+    # because the timestamp of the request is encoded within the ID.
+    # (https://artists.spotify.com/blog/our-playlist-ecosystem-is-evolving)
     snapshot_id: str
     num_followers: Optional[int]
     owner: Owner

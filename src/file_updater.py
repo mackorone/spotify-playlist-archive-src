@@ -4,7 +4,6 @@ import collections
 import datetime
 import logging
 import pathlib
-from dataclasses import replace
 from typing import Dict, Mapping, Optional, Set
 
 from file_formatter import Formatter
@@ -134,12 +133,9 @@ class FileUpdater:
                 f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
             )
             try:
-                new_version = await spotify.get_playlist(playlist_id, aliases)
-                # Only update if something other than snapshot_id changed
-                old_version = playlists.get(playlist_id)
-                old_snapshot_id = old_version and old_version.snapshot_id
-                if replace(new_version, snapshot_id=old_snapshot_id) != old_version:
-                    playlists[playlist_id] = new_version
+                playlists[playlist_id] = await spotify.get_playlist(
+                    playlist_id, aliases
+                )
             # When playlists are deleted, the Spotify API returns 404; skip
             # those playlists (no updates) but retain them in the archive
             except FailedRequestError:
