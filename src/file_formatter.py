@@ -119,38 +119,48 @@ class Formatter:
             cls.REMOVED,
         ]
 
-        published_ids = playlist.published_playlist_ids
-        if len(published_ids) == 1:
-            playlist_url = f"https://open.spotify.com/playlist/{published_ids[0]}"
-        else:
-            playlist_url = ""
-
         vertical_separators = ["|"] * (len(columns) + 1)
         line_template = " {} ".join(vertical_separators)
         divider_line = "---".join(vertical_separators)
         lines = cls._markdown_header_lines(
             playlist_name=playlist.name,
-            playlist_url=playlist_url,
+            playlist_url=playlist.url,
             playlist_id=playlist_id,
             playlist_description=playlist.description,
             is_cumulative=True,
         )
-        lines += [
-            line_template.format(*columns),
-            divider_line,
-        ]
 
-        # If the tracks are spread across multiple published playlists, append
-        # a link for each playlist
-        if len(published_ids) > 1:
-            joined = ", ".join(
+        num_songs = len(playlist.tracks)
+        info_line = "{} - {} - ".format(
+            f"{num_songs:,} song" + ("s" if num_songs > 1 else ""),
+            cls._format_duration_english(
+                sum(track.duration_ms for track in playlist.tracks)
+            ),
+        )
+        published_playlist_ids = playlist.published_playlist_ids
+        if len(published_playlist_ids) == 0:
+            info_line += "not published yet"
+        if len(published_playlist_ids) == 1:
+            info_line += cls._link(
+                MarkdownEscapedString("published"),
+                f"https://open.spotify.com/playlist/{published_playlist_ids[0]}",
+            )
+        if len(published_playlist_ids) > 1:
+            info_line += " published: "
+            info_line += ", ".join(
                 cls._link(
                     MarkdownEscapedString(f"part {i + 1}"),
                     f"https://open.spotify.com/playlist/{playlist_id}",
                 )
-                for i, playlist_id in enumerate(published_ids)
+                for i, playlist_id in enumerate(published_playlist_ids)
             )
-            lines[2] += f" ({joined})"
+
+        lines += [
+            info_line,
+            "",
+            line_template.format(*columns),
+            divider_line,
+        ]
 
         for i, track in enumerate(playlist.tracks):
             date_added = str(track.date_added)
