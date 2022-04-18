@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
-from typing import List, Mapping
+from typing import List, Mapping, Tuple
 
 from plants.markdown import MarkdownEscapedString
 from playlist_id import PlaylistID
@@ -25,12 +25,14 @@ class Formatter:
     def readme(cls, prev_content: str, playlists: Mapping[PlaylistID, Playlist]) -> str:
         old_lines = prev_content.splitlines()
         index = old_lines.index("## Playlists")
-        playlist_lines: List[str] = []
+        playlist_tuples: List[Tuple[str, str]] = []
         for playlist_id, playlist in playlists.items():
-            name = MarkdownEscapedString(playlist.unique_name.strip())
-            link = cls._link(name, URL.pretty(playlist_id))
-            playlist_lines.append(f"- {link}")
-        new_lines = old_lines[: index + 1] + [""] + sorted(playlist_lines)
+            name_stripped = playlist.unique_name.strip()
+            text = MarkdownEscapedString(name_stripped)
+            link = cls._link(text, URL.pretty(playlist_id))
+            playlist_tuples.append((name_stripped, f"- {link}"))
+        playlist_lines = [text for key, text in sorted(playlist_tuples)]
+        new_lines = old_lines[: index + 1] + [""] + playlist_lines
         return "\n".join(new_lines) + "\n"
 
     @classmethod
