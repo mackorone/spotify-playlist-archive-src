@@ -1,6 +1,5 @@
 - Cumulative playlist improvements
     - Make date first scraped more prominent, add it to pretty playlists
-    - More data in published playlists (date first scraped, etc.)
     - Clean up near-duplicates in cumulative playlists
         - Key: title, artists, and duration
             - Check that this doesn't have false positives
@@ -20,13 +19,14 @@
     - More unit tests for playlist updater
         - only_fetch_these_playlists
     - Fix code complexity of playlist updater
-    - Write wrapper class for path-related logic
+    - Merge playlists-dir branch
+        - Wrapper class for path-related logic
         - Add getter methods for all paths
         - Only registry dir should be enumerable
-    - Separate class for SpotifyPlaylist
+    - Merge cumulative regeneration code
+    - Create a separate class for SpotifyPlaylist
         - No concept of "original" vs "unique" name
         - Consider using library for serialization
-    - Merge cumulative regeneration code
     - Measure code coverage and add missing tests
         - .coveragerc file should include:
           [report]
