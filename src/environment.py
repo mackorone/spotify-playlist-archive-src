@@ -6,8 +6,15 @@ import pathlib
 from plants.environment import Environment as PlantsEnvironment
 from plants.external import external
 
+# Subclassing pathlib.Path is difficult because the concrete type depends on
+# platform, which is determined at runtime. This second line determines which
+# type to subclass while the first line tricks Pyre into (correctly) thinking
+# that ConcretePathType is valid type.
+ConcretePathType = pathlib.Path
+ConcretePathType = type(pathlib.Path())
 
-class RelativePath(pathlib.Path):
+
+class RelativePath(ConcretePathType):
     def __new__(cls, path: pathlib.Path) -> pathlib.Path:
         return super().__new__(cls, os.path.relpath(path))
 
