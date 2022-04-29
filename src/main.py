@@ -6,6 +6,7 @@ import datetime
 import logging
 
 from environment import Environment
+from file_manager import FileManager
 from file_updater import FileUpdater
 from plants.committer import Committer
 from plants.external import allow_external_calls
@@ -35,10 +36,11 @@ async def main() -> None:
         playlists_dir = Environment.get_prod_playlists_dir()
     else:
         playlists_dir = Environment.get_test_playlists_dir()
+    file_manager = FileManager(playlists_dir=playlists_dir)
 
     await FileUpdater.update_files(
         now=now,
-        playlists_dir=playlists_dir,
+        file_manager=file_manager,
         auto_register=auto_register,
         update_readme=commit_and_push,
     )

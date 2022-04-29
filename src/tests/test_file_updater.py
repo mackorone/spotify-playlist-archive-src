@@ -9,7 +9,8 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 
 from alias import Alias
-from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
+from file_manager import FileManager, MalformedAliasError, UnexpectedFilesError
+from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
@@ -55,7 +56,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
         with self.assertRaises(Exception):
             await FileUpdater.update_files(
                 now=sentinel.now,
-                playlists_dir=sentinel.playlists_dir,
+                file_manager=sentinel.file_manager,
                 auto_register=sentinel.auto_register,
                 update_readme=sentinel.update_readme,
             )
@@ -65,7 +66,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
     async def test_success(self) -> None:
         await FileUpdater.update_files(
             now=sentinel.now,
-            playlists_dir=sentinel.playlists_dir,
+            file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
             update_readme=sentinel.update_readme,
         )
@@ -85,7 +86,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
         )
         self.mock_update_files_impl.assert_called_once_with(
             now=sentinel.now,
-            playlists_dir=sentinel.playlists_dir,
+            file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
             update_readme=sentinel.update_readme,
             spotify=self.mock_spotify_class.return_value,
@@ -100,6 +101,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.repo_dir = pathlib.Path(self.temp_dir.name)
         self.playlists_dir = self.repo_dir / "playlists"
+        self.file_manager = FileManager(self.playlists_dir)
 
         # Mock the get_published_cumulative_playlists method
         patcher = patch(
@@ -143,7 +145,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
     ) -> None:
         await FileUpdater._update_files_impl(
             now=self.now,
-            playlists_dir=self.playlists_dir,
+            file_manager=self.file_manager,
             auto_register=auto_register,
             update_readme=update_readme,
             spotify=self.mock_spotify,
