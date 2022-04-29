@@ -6,6 +6,7 @@ import logging
 import pathlib
 from typing import Dict, Mapping, Optional, Set
 
+from alias import Alias, InvalidAliasError
 from file_formatter import Formatter
 from git_utils import GitUtils
 from github import GitHub
@@ -134,7 +135,7 @@ class FileUpdater:
             )
             try:
                 playlists[playlist_id] = await spotify.get_playlist(
-                    playlist_id, aliases
+                    playlist_id, alias=aliases.get(playlist_id)
                 )
             # When playlists are deleted, the Spotify API returns 404; skip
             # those playlists (no updates) but retain them in the archive
@@ -329,8 +330,8 @@ class FileUpdater:
     @classmethod
     def _get_aliases(
         cls, playlist_id_to_path: Mapping[PlaylistID, pathlib.Path]
-    ) -> Dict[PlaylistID, str]:
-        aliases: Dict[PlaylistID, str] = {}
+    ) -> Dict[PlaylistID, Alias]:
+        aliases: Dict[PlaylistID, Alias] = {}
         for playlist_id, path in sorted(playlist_id_to_path.items()):
             with open(path, "r") as f:
                 lines = f.read().splitlines()
@@ -338,9 +339,9 @@ class FileUpdater:
                 continue
             if len(lines) != 1:
                 raise MalformedAliasError(f"Malformed alias: {playlist_id}")
-            alias = lines[0]
-            assert alias, alias
-            if alias.isspace():
+            try:
+                alias = Alias(lines[0])
+            except InvalidAliasError:
                 raise MalformedAliasError(f"Malformed alias: {playlist_id}")
             aliases[playlist_id] = alias
         return aliases

@@ -4,10 +4,11 @@ import datetime
 import pathlib
 import tempfile
 import textwrap
-from typing import Mapping, Type, TypeVar
+from typing import Optional, Type, TypeVar
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 
+from alias import Alias
 from file_updater import FileUpdater, MalformedAliasError, UnexpectedFilesError
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
@@ -171,11 +172,11 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
     @classmethod
     def _fake_get_playlist(
-        cls, playlist_id: PlaylistID, aliases: Mapping[PlaylistID, str]
+        cls, playlist_id: PlaylistID, *, alias: Optional[Alias]
     ) -> Playlist:
         return cls._helper(
             playlist_id=playlist_id,
-            original_name=aliases.get(playlist_id) or f"name_{playlist_id}",
+            original_name=alias or f"name_{playlist_id}",
             num_followers=0,
         )
 
@@ -230,7 +231,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         with open(registry_dir / "foo", "w") as f:
             f.write("alias")
         await self._update_files_impl()
-        self.mock_spotify.get_playlist.assert_called_once_with("foo", {"foo": "alias"})
+        self.mock_spotify.get_playlist.assert_called_once_with("foo", alias="alias")
         with open(self.playlists_dir / "plain" / "foo", "r") as f:
             lines = f.read().splitlines()
         self.assertEqual(lines[0], "alias")
@@ -309,8 +310,8 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
         self.mock_spotify.get_playlist.side_effect = UnittestUtils.side_effect(
             [
-                self._fake_get_playlist(PlaylistID("a"), aliases={}),
-                self._fake_get_playlist(PlaylistID("b"), aliases={}),
+                self._fake_get_playlist(PlaylistID("a"), alias=None),
+                self._fake_get_playlist(PlaylistID("b"), alias=None),
                 FailedRequestError(),
                 FailedRequestError(),
             ]

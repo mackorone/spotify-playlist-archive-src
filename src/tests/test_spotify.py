@@ -7,6 +7,7 @@ import datetime
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
+from alias import Alias
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
@@ -69,14 +70,14 @@ class TestGetWithRetry(SpotifyTestCase):
                 mock_response.json.return_value = data
             spotify = Spotify("token")
             with self.assertRaises(RetryBudgetExceededError):
-                await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+                await spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     async def test_failed_request(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
             mock_response.json.return_value = {"error": ""}
         spotify = Spotify("token")
         with self.assertRaises(FailedRequestError):
-            await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+            await spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
@@ -359,17 +360,7 @@ class TestGetPlaylist(SpotifyTestCase):
                     mock_response.json.return_value = data
                 spotify = Spotify("token")
                 with self.assertRaises(InvalidDataError):
-                    await spotify.get_playlist(PlaylistID("abc123"), aliases={})
-
-    async def test_empty_alias(self) -> None:
-        for alias in ["", " ", "\n"]:
-            async with self.mock_session.get.return_value as mock_response:
-                mock_response.json.return_value = {"name": "foo"}
-            spotify = Spotify("token")
-            with self.assertRaises(InvalidDataError):
-                await spotify.get_playlist(
-                    PlaylistID("abc123"), aliases={PlaylistID("abc123"): alias}
-                )
+                    await spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
     async def test_nonempty_alias(self, mock_get_tracks: AsyncMock) -> None:
@@ -390,7 +381,7 @@ class TestGetPlaylist(SpotifyTestCase):
             }
             spotify = Spotify("token")
             playlist = await spotify.get_playlist(
-                PlaylistID("abc123"), aliases={PlaylistID("abc123"): "alias"}
+                PlaylistID("abc123"), alias=Alias("alias")
             )
             self.assertEqual(playlist.original_name, "alias")
             self.assertEqual(playlist.unique_name, "alias")
@@ -433,7 +424,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 },
             }
         spotify = Spotify("token")
-        playlist = await spotify.get_playlist(PlaylistID("abc123"), aliases={})
+        playlist = await spotify.get_playlist(PlaylistID("abc123"), alias=None)
         self.assertEqual(
             playlist,
             Playlist(

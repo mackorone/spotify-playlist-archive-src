@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
 import aiohttp
 
+from alias import Alias
 from plants.external import external
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
@@ -133,7 +134,7 @@ class Spotify:
         return ids
 
     async def get_playlist(
-        self, playlist_id: PlaylistID, aliases: Dict[PlaylistID, str]
+        self, playlist_id: PlaylistID, *, alias: Optional[Alias]
     ) -> Playlist:
         href = self._get_playlist_href(playlist_id)
         data = await self._get_with_retry(href)
@@ -143,8 +144,8 @@ class Spotify:
         if not playlist_url:
             playlist_url = ""
 
-        if playlist_id in aliases:
-            name = aliases[playlist_id]
+        if alias:
+            name = alias
         else:
             name = self._get_required(data, "name", str)
         if not name.strip():
