@@ -95,7 +95,10 @@ class Spotify:
         href = self.BASE_URL + "browse/featured-playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
-            playlists = self._get_required(data, "playlists", dict)
+            playlists = self._get_optional(data, "playlists", dict)
+            if not playlists:
+                href = None
+                continue
             playlist_ids |= {PlaylistID(x) for x in self._extract_ids(playlists)}
             href = playlists.get("next")
         return playlist_ids
@@ -107,7 +110,10 @@ class Spotify:
         href = self.BASE_URL + "browse/categories?limit=50"
         while href:
             data = await self._get_with_retry(href)
-            categories = self._get_required(data, "categories", dict)
+            categories = self._get_optional(data, "categories", dict)
+            if not categories:
+                href = None
+                continue
             category_ids |= self._extract_ids(categories)
             href = categories.get("next")
         for category in sorted(category_ids):
@@ -118,7 +124,10 @@ class Spotify:
                 except FailedRequestError:
                     # Weirdly, some categories return 404
                     break
-                playlists = self._get_required(data, "playlists", dict)
+                playlists = self._get_optional(data, "playlists", dict)
+                if not playlists:
+                    href = None
+                    continue
                 playlist_ids |= {PlaylistID(x) for x in self._extract_ids(playlists)}
                 href = playlists.get("next")
         return playlist_ids
@@ -126,11 +135,14 @@ class Spotify:
     @classmethod
     def _extract_ids(cls, data: Dict[str, Any]) -> Set[str]:
         ids: Set[str] = set()
-        items = cls._get_required(data, "items", list)
-        for item in items:
+        items = cls._get_optional(data, "items", list)
+        for item in items or []:
             if not isinstance(item, dict):
-                raise InvalidDataError(f"Invalid item: {item}")
-            ids.add(cls._get_required(item, "id", str))
+                continue
+            id_ = cls._get_optional(item, "id", str)
+            if not id_:
+                continue
+            ids.add(id_)
         return ids
 
     async def get_playlist(

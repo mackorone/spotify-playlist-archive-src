@@ -137,8 +137,10 @@ class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = data
             spotify = Spotify("token")
-            with self.assertRaises(InvalidDataError):
-                await spotify.get_spotify_user_playlist_ids()
+            self.assertEqual(
+                await spotify.get_spotify_user_playlist_ids(),
+                set(),
+            )
 
     async def test_success(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
@@ -176,8 +178,10 @@ class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = data
             spotify = Spotify("token")
-            with self.assertRaises(InvalidDataError):
-                await spotify.get_featured_playlist_ids()
+            self.assertEqual(
+                await spotify.get_featured_playlist_ids(),
+                set(),
+            )
 
     async def test_success(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
@@ -245,8 +249,10 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.side_effect = side_effect
             spotify = Spotify("token")
-            with self.assertRaises(InvalidDataError):
-                await spotify.get_category_playlist_ids()
+            self.assertEqual(
+                await spotify.get_category_playlist_ids(),
+                set(),
+            )
 
     async def test_success(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
