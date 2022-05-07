@@ -40,19 +40,24 @@ class Spotify:
         headers = {"Authorization": f"Bearer {access_token}"}
         self._session: aiohttp.ClientSession = self._get_session(headers=headers)
         # Handle rate limiting by retrying
-        self._retry_budget_seconds: int = 300
+        self._retry_budget_seconds: float = 300
 
-    async def _get_with_retry(self, href: str) -> Dict[str, Any]:
+    async def _get_with_retry(
+        self, href: str, *, max_spend_seconds: Optional[float] = None
+    ) -> Dict[str, Any]:
+        if max_spend_seconds is None:
+            max_spend_seconds = self._retry_budget_seconds
         while True:
             async with self._session.get(href) as response:
-                if response.status == 429:
+                status = response.status
+                if status == 429:
                     # Add an extra second, just to be safe
                     # https://stackoverflow.com/a/30557896/3176152
                     backoff_seconds = int(response.headers["Retry-After"]) + 1
                     reason = "Rate limited"
-                elif response.status in [500, 502, 504]:
+                elif status in [500, 502, 504]:
                     backoff_seconds = 1
-                    reason = "Server error"
+                    reason = f"Server error ({status})"
                 else:
                     data = await response.json(content_type=None)
                     context = json.dumps({"request": href, "response": data})
@@ -68,10 +73,12 @@ class Spotify:
                         return data
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
-                    raise RetryBudgetExceededError("Retry budget exceeded")
-                else:
-                    logger.warning(f"{reason}, will retry after {backoff_seconds}s")
-                    await self._sleep(backoff_seconds)
+                    raise RetryBudgetExceededError("Session retry budget exceeded")
+                max_spend_seconds -= backoff_seconds
+                if max_spend_seconds <= 0:
+                    raise RetryBudgetExceededError("Request retry budget exceeded")
+                logger.warning(f"{reason}, will retry after {backoff_seconds}s")
+                await self._sleep(backoff_seconds)
 
     async def shutdown(self) -> None:
         await self._session.close()
@@ -109,7 +116,7 @@ class Spotify:
         category_ids: Set[str] = set()
         href = self.BASE_URL + "browse/categories?limit=50"
         while href:
-            data = await self._get_with_retry(href)
+            data = await self._get_with_retry(href, max_spend_seconds=3)
             categories = self._get_optional(data, "categories", dict)
             if not categories:
                 href = None
@@ -120,7 +127,7 @@ class Spotify:
             href = self.BASE_URL + f"browse/categories/{category}/playlists?limit=50"
             while href:
                 try:
-                    data = await self._get_with_retry(href)
+                    data = await self._get_with_retry(href, max_spend_seconds=3)
                 except FailedRequestError:
                     # Weirdly, some categories return 404
                     break
