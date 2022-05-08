@@ -38,24 +38,16 @@ class MockSession(AsyncMock):
 
 
 class SpotifyTestCase(IsolatedAsyncioTestCase):
-    def _patch(
-        self,
-        target: str,
-        new_callable=None,  # pyre-fixme[2]
-        return_value=None,  # pyre-fixme[2]
-    ) -> Mock:
-        patcher = patch(target, new_callable=new_callable, return_value=return_value)
-        mock_object = patcher.start()
-        self.addCleanup(patcher.stop)
-        return mock_object
-
     async def asyncSetUp(self) -> None:
         self.mock_session = await MockSession.create()
-        self.mock_get_session = self._patch(
+        self.mock_get_session = UnittestUtils.patch(
+            self,
             "spotify.Spotify._get_session",
-            return_value=self.mock_session,
+            # new_callable returns the replacement for get_session
+            new_callable=lambda: Mock(return_value=self.mock_session),
         )
-        self.mock_sleep = self._patch(
+        self.mock_sleep = UnittestUtils.patch(
+            self,
             "spotify.Spotify._sleep",
             new_callable=AsyncMock,
         )
