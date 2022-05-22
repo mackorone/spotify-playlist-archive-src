@@ -314,6 +314,7 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
 
 class TestGetPlaylist(SpotifyTestCase):
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    # pyre-fixme[30]
     async def test_invalid_data(self, mock_get_tracks: Mock) -> None:
         mock_get_tracks.return_value = []
         valid_data = {
