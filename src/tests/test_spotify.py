@@ -7,6 +7,8 @@ import datetime
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
+import aiohttp
+
 from alias import Alias
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
@@ -54,6 +56,14 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
 
 
 class TestGetWithRetry(SpotifyTestCase):
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_exception(self, mock_logger: Mock) -> None:
+        self.mock_session.get.side_effect = aiohttp.client_exceptions.ClientOSError
+        spotify = Spotify("token")
+        with self.assertRaises(RetryBudgetExceededError):
+            await spotify.get_playlist(PlaylistID("abc123"), alias=None)
+
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
     async def test_invalid_response(self, mock_logger: Mock) -> None:

@@ -48,37 +48,41 @@ class Spotify:
         if max_spend_seconds is None:
             max_spend_seconds = self._retry_budget_seconds
         while True:
-            async with self._session.get(href) as response:
-                status = response.status
-                if status == 429:
-                    # Add an extra second, just to be safe
-                    # https://stackoverflow.com/a/30557896/3176152
-                    backoff_seconds = int(response.headers["Retry-After"]) + 1
-                    reason = "Rate limited"
-                elif status in [500, 502, 504]:
-                    backoff_seconds = 1
-                    reason = f"Server error ({status})"
-                else:
-                    data = await response.json(content_type=None)
-                    context = json.dumps({"request": href, "response": data})
-                    if not isinstance(data, dict):
+            try:
+                async with self._session.get(href) as response:
+                    status = response.status
+                    if status == 429:
+                        # Add an extra second, just to be safe
+                        # https://stackoverflow.com/a/30557896/3176152
+                        backoff_seconds = int(response.headers["Retry-After"]) + 1
+                        reason = "Rate limited"
+                    elif status in [500, 502, 504]:
                         backoff_seconds = 1
-                        reason = "Invalid response"
-                    elif not data:
-                        backoff_seconds = 1
-                        reason = "Empty response"
-                    elif "error" in data:
-                        raise FailedRequestError(f"Failed request: {context}")
+                        reason = f"Server error ({status})"
                     else:
-                        return data
-                self._retry_budget_seconds -= backoff_seconds
-                if self._retry_budget_seconds <= 0:
-                    raise RetryBudgetExceededError("Session retry budget exceeded")
-                max_spend_seconds -= backoff_seconds
-                if max_spend_seconds <= 0:
-                    raise RetryBudgetExceededError("Request retry budget exceeded")
-                logger.warning(f"{reason}, will retry after {backoff_seconds}s")
-                await self._sleep(backoff_seconds)
+                        data = await response.json(content_type=None)
+                        context = json.dumps({"request": href, "response": data})
+                        if not isinstance(data, dict):
+                            backoff_seconds = 1
+                            reason = "Invalid response"
+                        elif not data:
+                            backoff_seconds = 1
+                            reason = "Empty response"
+                        elif "error" in data:
+                            raise FailedRequestError(f"Failed request: {context}")
+                        else:
+                            return data
+            except aiohttp.client_exceptions.ClientConnectionError:
+                backoff_seconds = 1
+                reason = "Connection problem"
+            self._retry_budget_seconds -= backoff_seconds
+            if self._retry_budget_seconds <= 0:
+                raise RetryBudgetExceededError("Session retry budget exceeded")
+            max_spend_seconds -= backoff_seconds
+            if max_spend_seconds <= 0:
+                raise RetryBudgetExceededError("Request retry budget exceeded")
+            logger.warning(f"{reason}, will retry after {backoff_seconds}s")
+            await self._sleep(backoff_seconds)
 
     async def shutdown(self) -> None:
         await self._session.close()
