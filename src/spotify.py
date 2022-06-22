@@ -75,6 +75,9 @@ class Spotify:
             except aiohttp.client_exceptions.ClientConnectionError:
                 backoff_seconds = 1
                 reason = "Connection problem"
+            except asyncio.exceptions.TimeoutError:
+                backoff_seconds = 1
+                reason = "Asyncio timeout"
             self._retry_budget_seconds -= backoff_seconds
             if self._retry_budget_seconds <= 0:
                 raise RetryBudgetExceededError("Session retry budget exceeded")

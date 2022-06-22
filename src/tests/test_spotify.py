@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import datetime
 from unittest import IsolatedAsyncioTestCase
@@ -59,10 +60,14 @@ class TestGetWithRetry(SpotifyTestCase):
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
     async def test_exception(self, mock_logger: Mock) -> None:
-        self.mock_session.get.side_effect = aiohttp.client_exceptions.ClientOSError
-        spotify = Spotify("token")
-        with self.assertRaises(RetryBudgetExceededError):
-            await spotify.get_playlist(PlaylistID("abc123"), alias=None)
+        for type_ in [
+            aiohttp.client_exceptions.ClientOSError,
+            asyncio.exceptions.TimeoutError,
+        ]:
+            self.mock_session.get.side_effect = type_
+            spotify = Spotify("token")
+            with self.assertRaises(RetryBudgetExceededError):
+                await spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
