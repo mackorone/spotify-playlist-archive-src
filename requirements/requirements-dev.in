@@ -3,5 +3,5 @@
 black
 flake8
 isort
-pyre-check>=0.9.13
-typed-ast>=1.5.3
+pyre-check
+typed-ast
