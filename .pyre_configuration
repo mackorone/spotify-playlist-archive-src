@@ -1,6 +1,5 @@
 {
   "site_package_search_strategy": "pep561",
-  "site_roots": ["venv/lib/python3.10/site-packages/"],
   "source_directories": ["src/"],
   "strict": true
 }
