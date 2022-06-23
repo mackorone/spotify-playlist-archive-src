@@ -4,4 +4,3 @@ black
 flake8
 isort
 pyre-check
-typed-ast

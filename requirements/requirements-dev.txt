@@ -86,8 +86,6 @@ testslide==2.7.0
     # via pyre-check
 tomli==2.0.1
     # via black
-typed-ast==1.5.4
-    # via -r requirements/requirements-dev.in
 typeguard==2.13.3
     # via testslide
 typing-extensions==4.2.0
