@@ -51,6 +51,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    configure_root_logger()
     allow_external_calls()
+    configure_root_logger()
     asyncio.run(main())
