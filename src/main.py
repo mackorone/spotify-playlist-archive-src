@@ -10,7 +10,7 @@ from file_manager import FileManager
 from file_updater import FileUpdater
 from plants.committer import Committer
 from plants.external import allow_external_calls
-from plants.logging import configure_root_logger
+from plants.logging import configure_logging
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -52,5 +52,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     allow_external_calls()
-    configure_root_logger()
+    configure_logging()
     asyncio.run(main())
