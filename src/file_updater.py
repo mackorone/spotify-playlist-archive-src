@@ -9,7 +9,6 @@ from typing import Dict, Optional, Set
 from file_formatter import Formatter
 from file_manager import FileManager
 from git_utils import GitUtils
-from github import GitHub
 from plants.environment import Environment
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
@@ -86,11 +85,6 @@ class FileUpdater:
 
         file_manager.fixup_aliases()
         registered_playlists = file_manager.get_registered_playlists()
-
-        # Get data from GitHub
-        published_cumulative_playlists = (
-            await GitHub.get_published_cumulative_playlists()
-        )
 
         # Read existing playlist data, useful if Spotify fetch fails
         playlists: Dict[PlaylistID, Playlist] = {}
@@ -234,10 +228,8 @@ class FileUpdater:
                     description="",
                     tracks=[],
                     date_first_scraped=today,
-                    published_playlist_ids=[],
                 )
-            published_ids = published_cumulative_playlists.get(playlist_id) or []
-            new_struct = prev_struct.update(today, playlist, published_ids)
+            new_struct = prev_struct.update(today, playlist)
             cls._write_to_file_if_content_changed(
                 prev_content=prev_content,
                 content=new_struct.to_json() + "\n",

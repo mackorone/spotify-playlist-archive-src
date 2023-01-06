@@ -95,13 +95,6 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.playlists_dir = self.repo_dir / "playlists"
         self.file_manager = FileManager(self.playlists_dir)
 
-        # Mock the get_published_cumulative_playlists method
-        self.mock_get_published_cumulative_playlists = UnittestUtils.patch(
-            self,
-            "github.GitHub.get_published_cumulative_playlists",
-            new_callable=lambda: AsyncMock(return_value={}),
-        )
-
         # Mock the GitUtils methods
         UnittestUtils.patch(
             self,

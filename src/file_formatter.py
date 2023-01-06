@@ -133,29 +133,12 @@ class Formatter:
         )
 
         num_songs = len(playlist.tracks)
-        info_line = "{} - {} - ".format(
+        info_line = "{} - {}".format(
             f"{num_songs:,} song" + ("s" if num_songs > 1 else ""),
             cls._format_duration_english(
                 sum(track.duration_ms for track in playlist.tracks)
             ),
         )
-        published_playlist_ids = playlist.published_playlist_ids
-        if len(published_playlist_ids) == 0:
-            info_line += "not published yet"
-        if len(published_playlist_ids) == 1:
-            info_line += cls._link(
-                MarkdownEscapedString("published"),
-                f"https://open.spotify.com/playlist/{published_playlist_ids[0]}",
-            )
-        if len(published_playlist_ids) > 1:
-            info_line += " published: "
-            info_line += ", ".join(
-                cls._link(
-                    MarkdownEscapedString(f"part {i + 1}"),
-                    f"https://open.spotify.com/playlist/{playlist_id}",
-                )
-                for i, playlist_id in enumerate(published_playlist_ids)
-            )
 
         lines += [
             info_line,
