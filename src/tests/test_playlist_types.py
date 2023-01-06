@@ -4,7 +4,6 @@ import datetime
 import textwrap
 from unittest import TestCase
 
-from playlist_id import PlaylistID
 from playlist_types import (
     Album,
     Artist,

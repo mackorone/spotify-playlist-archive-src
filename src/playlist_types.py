@@ -7,8 +7,6 @@ import datetime
 import json
 from typing import List, Optional, Sequence
 
-from playlist_id import PlaylistID
-
 
 @dataclasses.dataclass(frozen=True)
 class Owner:
