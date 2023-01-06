@@ -327,7 +327,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                     """\
                     prev content
 
-                    ## Playlists
+                    ## Playlists \\(1\\)
 
                     - [fizz](buzz)
                     """
@@ -342,7 +342,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 """\
                 prev content
 
-                ## Playlists
+                ## Playlists \\(3\\)
 
                 - [name\\_a](/playlists/pretty/a.md)
                 - [name\\_b](/playlists/pretty/b.md)

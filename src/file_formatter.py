@@ -24,7 +24,10 @@ class Formatter:
     @classmethod
     def readme(cls, prev_content: str, playlists: Mapping[PlaylistID, Playlist]) -> str:
         old_lines = prev_content.splitlines()
-        index = old_lines.index("## Playlists")
+        prefix = "## Playlists"
+        index = next(i for i, line in enumerate(old_lines) if line.startswith(prefix))
+        header = prefix + MarkdownEscapedString(f" ({len(playlists)})")
+
         playlist_tuples: List[Tuple[str, str]] = []
         for playlist_id, playlist in playlists.items():
             name_stripped = playlist.unique_name.strip()
@@ -32,7 +35,8 @@ class Formatter:
             link = cls._link(text, URL.pretty(playlist_id))
             playlist_tuples.append((name_stripped, f"- {link}"))
         playlist_lines = [text for key, text in sorted(playlist_tuples)]
-        new_lines = old_lines[: index + 1] + [""] + playlist_lines
+
+        new_lines = old_lines[:index] + [header, ""] + playlist_lines
         return "\n".join(new_lines) + "\n"
 
     @classmethod
