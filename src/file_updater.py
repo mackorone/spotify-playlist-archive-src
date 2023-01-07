@@ -248,6 +248,15 @@ class FileUpdater:
         # Check for unexpected files in playlist directories
         file_manager.ensure_no_unexpected_files()
 
+        # Write metadata.json
+        metadata_json_path = file_manager.get_metadata_json_path()
+        prev_content = cls._get_file_content_or_empty_string(metadata_json_path)
+        cls._write_to_file_if_content_changed(
+            prev_content=prev_content,
+            content=Formatter.metadata_json(playlists) + "\n",
+            path=metadata_json_path,
+        )
+
         # Lastly, update README.md
         if update_readme:
             readme_path = file_manager.get_readme_path()

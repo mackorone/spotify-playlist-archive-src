@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import dataclasses
 import datetime
+import json
 from typing import List, Mapping, Tuple
 
 from plants.markdown import MarkdownEscapedString
@@ -38,6 +40,19 @@ class Formatter:
 
         new_lines = old_lines[:index] + [header, ""] + playlist_lines
         return "\n".join(new_lines) + "\n"
+
+    @classmethod
+    def metadata_json(cls, playlists: Mapping[PlaylistID, Playlist]) -> str:
+        metadata_dict = {}
+        for playlist_id, playlist in playlists.items():
+            playlist_dict = dataclasses.asdict(playlist)
+            del playlist_dict["tracks"]
+            metadata_dict[playlist_id] = playlist_dict
+        return json.dumps(
+            metadata_dict,
+            indent=2,
+            sort_keys=True,
+        )
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
