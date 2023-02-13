@@ -14,6 +14,7 @@
         - Add intermediate directories to playlist dirs
         - (Maybe) delete old cumulative playlist blobs
     - https://next.github.com/projects/flat-data
+    - Automatically generate aliases for personalized playlists
 
 - Codebase
     - More unit tests for playlist updater
