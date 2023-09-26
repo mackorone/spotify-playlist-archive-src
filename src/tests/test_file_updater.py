@@ -404,9 +404,34 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                     """
                 ),
             )
+
         with open(metadata_dir / "metadata-compact.json", "r") as f:
             content = f.read()
         self.assertEqual(content, '{"a":"name_a","b":"name_b","c":" name_c "}\n')
+
+        with open(metadata_dir / "metadata-full.json.br", "rb") as f:
+            content = f.read()
+        self.assertEqual(
+            content,
+            (
+                b"\x1b\x11\x03\x00\x1c\x07v,cz\xbe\xb1u'\xa6nK\xf5,$c\x1b\xdb-\x82"
+                b"\x1eQL&\x88H_\xea\xb0(L\xdd\xbc\xe7gYjc76\x8e\r\x9e>X\xf4\xc0\tQ"
+                b"\x17\x95n\x8b\x04\xf3W\x04\xe2\x8d;\xffH\xe0\xc6\x94z\x01\x9c\x1cu"
+                b"\xd4[Da\x03\xcd\xa76\xc9q\x04\x0ezG\xa5r\xd4u\xaf\x9eB\xb9S$f\xff"
+                b"\xe8\x9dy\x98\x81sz\xb9\xf9\x966D7\x1c\x1dL2Jl&4\x8dn\xc0\xd5\x8dB"
+                b"\xa5?\x9a\xf7\xf0\x0e&\x9a\x11?/\xc9\x87\xfc>C\xf4<\x81\x07\xb3j"
+            ),
+        )
+
+        with open(metadata_dir / "metadata-compact.json.br", "rb") as f:
+            content = f.read()
+        self.assertEqual(
+            content,
+            (
+                b"\x1b)\x00\xf8\x1d\tv\xac\x89\xbb\xf348a\x08tc\xa9>7\xd9\x8fQC"
+                b"\x11C\xa4Xt:\x81EDqH\x15\xd0\xc0\x1e\x97\xe9\x82c\xa2\x14="
+            ),
+        )
 
     async def test_success(self) -> None:
         # TODO

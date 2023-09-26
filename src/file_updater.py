@@ -4,7 +4,9 @@ import collections
 import datetime
 import logging
 import pathlib
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, TypeVar
+
+import brotli
 
 from file_formatter import Formatter
 from file_manager import FileManager
@@ -15,6 +17,9 @@ from playlist_types import CumulativePlaylist, Playlist
 from spotify import FailedRequestError, Spotify
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+T = TypeVar("T", str, bytes)
 
 
 class FileUpdater:
@@ -249,19 +254,27 @@ class FileUpdater:
         file_manager.ensure_no_unexpected_files()
 
         # Update all metadata files
-        metadata_full_content = Formatter.metadata_full_json(playlists) + "\n"
-        metadata_compact_content = Formatter.metadata_compact_json(playlists) + "\n"
+        metadata_full_json = Formatter.metadata_full_json(playlists)
+        metadata_compact_json = Formatter.metadata_compact_json(playlists)
         cls._maybe_update_file(
             path=file_manager.get_old_metadata_json_path(),
-            content=metadata_full_content,
+            content=metadata_full_json + "\n",
         )
         cls._maybe_update_file(
             path=file_manager.get_metadata_full_json_path(),
-            content=metadata_full_content,
+            content=metadata_full_json + "\n",
         )
         cls._maybe_update_file(
             path=file_manager.get_metadata_compact_json_path(),
-            content=metadata_compact_content,
+            content=metadata_compact_json + "\n",
+        )
+        cls._maybe_update_file(
+            path=file_manager.get_metadata_full_json_br_path(),
+            content=brotli.compress(metadata_full_json.encode()),
+        )
+        cls._maybe_update_file(
+            path=file_manager.get_metadata_compact_json_br_path(),
+            content=brotli.compress(metadata_compact_json.encode()),
         )
 
         # Lastly, update README.md
@@ -290,19 +303,38 @@ class FileUpdater:
             return ""
 
     @classmethod
+    def _get_file_content_or_empty_bytes(cls, path: pathlib.Path) -> bytes:
+        try:
+            with open(path, "rb") as f:
+                return f.read()
+        except FileNotFoundError:
+            return b""
+
+    @classmethod
     def _write_to_file_if_content_changed(
-        cls, prev_content: str, content: str, path: pathlib.Path
+        cls, prev_content: T, content: T, path: pathlib.Path
     ) -> None:
         if content == prev_content:
             logger.info(f"  No changes to file: {path}")
             return
         logger.info(f"  Writing updates to file: {path}")
-        with open(path, "w") as f:
-            f.write(content)
+        if isinstance(content, bytes):
+            with open(path, "wb") as f:
+                f.write(content)
+        elif isinstance(content, str):
+            with open(path, "w") as f:
+                f.write(content)
+        else:
+            raise RuntimeError(f"Invalid content type: {type(content)}")
 
     @classmethod
-    def _maybe_update_file(cls, path: pathlib.Path, content: str) -> None:
-        prev_content = cls._get_file_content_or_empty_string(path)
+    def _maybe_update_file(cls, path: pathlib.Path, content: T) -> None:
+        if isinstance(content, bytes):
+            prev_content = cls._get_file_content_or_empty_bytes(path)
+        elif isinstance(content, str):
+            prev_content = cls._get_file_content_or_empty_string(path)
+        else:
+            raise RuntimeError(f"Invalid content type: {type(content)}")
         cls._write_to_file_if_content_changed(
             prev_content=prev_content,
             content=content,
