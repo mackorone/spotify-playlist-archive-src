@@ -248,13 +248,20 @@ class FileUpdater:
         # Check for unexpected files in playlist directories
         file_manager.ensure_no_unexpected_files()
 
-        # Write metadata.json
-        metadata_json_path = file_manager.get_metadata_json_path()
-        prev_content = cls._get_file_content_or_empty_string(metadata_json_path)
-        cls._write_to_file_if_content_changed(
-            prev_content=prev_content,
-            content=Formatter.metadata_json(playlists) + "\n",
-            path=metadata_json_path,
+        # Update all metadata files
+        metadata_full_content = Formatter.metadata_full_json(playlists) + "\n"
+        metadata_compact_content = Formatter.metadata_compact_json(playlists) + "\n"
+        cls._maybe_update_file(
+            path=file_manager.get_old_metadata_json_path(),
+            content=metadata_full_content,
+        )
+        cls._maybe_update_file(
+            path=file_manager.get_metadata_full_json_path(),
+            content=metadata_full_content,
+        )
+        cls._maybe_update_file(
+            path=file_manager.get_metadata_compact_json_path(),
+            content=metadata_compact_content,
         )
 
         # Lastly, update README.md
@@ -292,3 +299,12 @@ class FileUpdater:
         logger.info(f"  Writing updates to file: {path}")
         with open(path, "w") as f:
             f.write(content)
+
+    @classmethod
+    def _maybe_update_file(cls, path: pathlib.Path, content: str) -> None:
+        prev_content = cls._get_file_content_or_empty_string(path)
+        cls._write_to_file_if_content_changed(
+            prev_content=prev_content,
+            content=content,
+            path=path,
+        )

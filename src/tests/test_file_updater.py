@@ -308,6 +308,9 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         for playlist_id in "abcd":
             (registry_dir / playlist_id).touch()
 
+        metadata_dir = self.playlists_dir / "metadata"
+        metadata_dir.mkdir(parents=True)
+
         pretty_dir = self.playlists_dir / "pretty"
         pretty_dir.mkdir(parents=True)
         for playlist_id in "ac":
@@ -350,53 +353,60 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 """
             ),
         )
-        with open(self.playlists_dir / "metadata.json", "r") as f:
+        for path in [
+            self.playlists_dir / "metadata.json",
+            metadata_dir / "metadata-full.json",
+        ]:
+            with open(path, "r") as f:
+                content = f.read()
+            self.assertEqual(
+                content,
+                textwrap.dedent(
+                    """\
+                    {
+                      "a": {
+                        "description": "description",
+                        "num_followers": 0,
+                        "original_name": "name_a",
+                        "owner": {
+                          "name": "owner_name",
+                          "url": "owner_url"
+                        },
+                        "snapshot_id": "snapshot_id",
+                        "unique_name": "name_a",
+                        "url": "url_a"
+                      },
+                      "b": {
+                        "description": "description",
+                        "num_followers": 0,
+                        "original_name": "name_b",
+                        "owner": {
+                          "name": "owner_name",
+                          "url": "owner_url"
+                        },
+                        "snapshot_id": "snapshot_id",
+                        "unique_name": "name_b",
+                        "url": "url_b"
+                      },
+                      "c": {
+                        "description": "description",
+                        "num_followers": 0,
+                        "original_name": " name_c ",
+                        "owner": {
+                          "name": "owner_name",
+                          "url": "owner_url"
+                        },
+                        "snapshot_id": "snapshot_id",
+                        "unique_name": " name_c ",
+                        "url": "url_c"
+                      }
+                    }
+                    """
+                ),
+            )
+        with open(metadata_dir / "metadata-compact.json", "r") as f:
             content = f.read()
-        self.assertEqual(
-            content,
-            textwrap.dedent(
-                """\
-                {
-                  "a": {
-                    "description": "description",
-                    "num_followers": 0,
-                    "original_name": "name_a",
-                    "owner": {
-                      "name": "owner_name",
-                      "url": "owner_url"
-                    },
-                    "snapshot_id": "snapshot_id",
-                    "unique_name": "name_a",
-                    "url": "url_a"
-                  },
-                  "b": {
-                    "description": "description",
-                    "num_followers": 0,
-                    "original_name": "name_b",
-                    "owner": {
-                      "name": "owner_name",
-                      "url": "owner_url"
-                    },
-                    "snapshot_id": "snapshot_id",
-                    "unique_name": "name_b",
-                    "url": "url_b"
-                  },
-                  "c": {
-                    "description": "description",
-                    "num_followers": 0,
-                    "original_name": " name_c ",
-                    "owner": {
-                      "name": "owner_name",
-                      "url": "owner_url"
-                    },
-                    "snapshot_id": "snapshot_id",
-                    "unique_name": " name_c ",
-                    "url": "url_c"
-                  }
-                }
-                """
-            ),
-        )
+        self.assertEqual(content, '{"a":"name_a","b":"name_b","c":" name_c "}\n')
 
     async def test_success(self) -> None:
         # TODO

@@ -12,7 +12,6 @@ from url import URL
 
 
 class Formatter:
-
     TRACK_NO = "No."
     TITLE = "Title"
     ARTISTS = "Artist(s)"
@@ -42,17 +41,20 @@ class Formatter:
         return "\n".join(new_lines) + "\n"
 
     @classmethod
-    def metadata_json(cls, playlists: Mapping[PlaylistID, Playlist]) -> str:
-        metadata_dict = {}
+    def metadata_full_json(cls, playlists: Mapping[PlaylistID, Playlist]) -> str:
+        data = {}
         for playlist_id, playlist in playlists.items():
             playlist_dict = dataclasses.asdict(playlist)
             del playlist_dict["tracks"]
-            metadata_dict[playlist_id] = playlist_dict
-        return json.dumps(
-            metadata_dict,
-            indent=2,
-            sort_keys=True,
-        )
+            data[playlist_id] = playlist_dict
+        return json.dumps(data, indent=2, sort_keys=True)
+
+    @classmethod
+    def metadata_compact_json(cls, playlists: Mapping[PlaylistID, Playlist]) -> str:
+        data = {}
+        for playlist_id, playlist in playlists.items():
+            data[playlist_id] = playlist.unique_name
+        return json.dumps(data, separators=(",", ":"), sort_keys=True)
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:

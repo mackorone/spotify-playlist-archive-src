@@ -28,6 +28,7 @@ class FileManager:
             self._get_plain_dir(),
             self._get_pretty_dir(),
             self._get_cumulative_dir(),
+            self._get_metadata_dir(),
         ]:
             directory.mkdir(parents=True, exist_ok=True)
 
@@ -101,8 +102,14 @@ class FileManager:
     def get_cumulative_markdown_path(self, playlist_id: PlaylistID) -> pathlib.Path:
         return self._get_cumulative_dir() / f"{playlist_id}.md"
 
-    def get_metadata_json_path(self) -> pathlib.Path:
+    def get_old_metadata_json_path(self) -> pathlib.Path:
         return self._playlists_dir / "metadata.json"
+
+    def get_metadata_full_json_path(self) -> pathlib.Path:
+        return self._get_metadata_dir() / "metadata-full.json"
+
+    def get_metadata_compact_json_path(self) -> pathlib.Path:
+        return self._get_metadata_dir() / "metadata-compact.json"
 
     def get_readme_path(self) -> pathlib.Path:
         return self._playlists_dir.parent / "README.md"
@@ -118,6 +125,9 @@ class FileManager:
 
     def _get_cumulative_dir(self) -> pathlib.Path:
         return self._playlists_dir / "cumulative"
+
+    def _get_metadata_dir(self) -> pathlib.Path:
+        return self._playlists_dir / "metadata"
 
     @classmethod
     def _remove_suffix(cls, string: str, suffix: str) -> str:
