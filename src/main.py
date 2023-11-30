@@ -4,8 +4,8 @@ import argparse
 import asyncio
 import datetime
 import logging
+import pathlib
 
-from environment import Environment
 from file_manager import FileManager
 from file_updater import FileUpdater
 from plants.committer import Committer
@@ -18,6 +18,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 async def main() -> None:
     now = datetime.datetime.now()
     parser = argparse.ArgumentParser(description="Snapshot Spotify playlists")
+    parser.add_argument(
+        "--playlists-dir",
+        help="Path to the playlists directory",
+        required=True,
+    )
     parser.add_argument(
         "--auto-register",
         help="Automatically register select playlists",
@@ -32,10 +37,7 @@ async def main() -> None:
     auto_register = bool(args.auto_register)
     commit_and_push = bool(args.commit_and_push)
 
-    if commit_and_push:
-        playlists_dir = Environment.get_prod_playlists_dir()
-    else:
-        playlists_dir = Environment.get_test_playlists_dir()
+    playlists_dir = pathlib.Path(args.playlists_dir)
     file_manager = FileManager(playlists_dir=playlists_dir)
 
     await FileUpdater.update_files(
