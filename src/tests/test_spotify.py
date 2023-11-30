@@ -9,7 +9,6 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import aiohttp
-
 from alias import Alias
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID

@@ -8,7 +8,6 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
 import aiohttp
-
 from alias import Alias
 from plants.external import external
 from playlist_id import PlaylistID
@@ -33,7 +32,6 @@ class RetryBudgetExceededError(Exception):
 
 
 class Spotify:
-
     BASE_URL = "https://api.spotify.com/v1/"
 
     def __init__(self, access_token: str) -> None:

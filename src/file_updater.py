@@ -7,7 +7,6 @@ import pathlib
 from typing import Dict, Optional, Set, TypeVar
 
 import brotli
-
 from file_formatter import Formatter
 from file_manager import FileManager
 from git_utils import GitUtils
