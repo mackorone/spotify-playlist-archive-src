@@ -10,6 +10,7 @@
         - How to handle tracks that are removed from Spotify
 
 - Features
+    - Sort playlists with >9 duplicate names in correct order
     - Automatically add alias for empty playlist names (best effort)
     - Debug perf issues: https://github.com/github/git-sizer
         - Add intermediate directories to playlist dirs
