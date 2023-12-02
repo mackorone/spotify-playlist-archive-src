@@ -76,6 +76,8 @@ class TestGetWithRetry(SpotifyTestCase):
             async with self.mock_session.get.return_value as mock_response:
                 mock_response.json.return_value = data
             spotify = Spotify("token")
+            # Set a smaller retry budget to make the test run quicker
+            spotify._retry_budget_seconds = 10
             with self.assertRaises(RetryBudgetExceededError):
                 await spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
