@@ -1,5 +1,11 @@
 {
   "site_package_search_strategy": "pep561",
   "source_directories": ["src/"],
-  "strict": true
+  "strict": true,
+  "search_path": [
+    {
+      "site-package": "brotli",
+      "is_toplevel_module": true
+    }
+  ]
 }

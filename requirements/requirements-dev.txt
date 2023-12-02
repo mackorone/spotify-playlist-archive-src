@@ -12,58 +12,50 @@ async-timeout==4.0.3
     # via aiohttp
 attrs==23.1.0
     # via aiohttp
-black==23.11.0
-    # via -r requirements/requirements-dev.in
 brotli==1.1.0
     # via -r requirements/requirements.in
+cfgv==3.4.0
+    # via pre-commit
 click==8.1.7
-    # via
-    #   black
-    #   pyre-check
+    # via pyre-check
 dataclasses-json==0.6.3
     # via pyre-check
-flake8==6.1.0
-    # via -r requirements/requirements-dev.in
+distlib==0.3.7
+    # via virtualenv
+filelock==3.13.1
+    # via virtualenv
 frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
+identify==2.5.32
+    # via pre-commit
 idna==3.6
     # via yarl
 intervaltree==3.1.0
     # via pyre-check
-isort==5.12.0
-    # via -r requirements/requirements-dev.in
 libcst==1.1.0
     # via pyre-check
 marshmallow==3.20.1
     # via dataclasses-json
-mccabe==0.7.0
-    # via flake8
 multidict==6.0.4
     # via
     #   aiohttp
     #   yarl
 mypy-extensions==1.0.0
-    # via
-    #   black
-    #   typing-inspect
+    # via typing-inspect
+nodeenv==1.8.0
+    # via pre-commit
 packaging==23.2
-    # via
-    #   black
-    #   marshmallow
-pathspec==0.11.2
-    # via black
+    # via marshmallow
 platformdirs==4.0.0
-    # via black
+    # via virtualenv
+pre-commit==3.5.0
+    # via -r requirements/requirements-dev.in
 psutil==5.9.6
     # via
     #   pyre-check
     #   testslide
-pycodestyle==2.11.1
-    # via flake8
-pyflakes==3.1.0
-    # via flake8
 pygments==2.17.2
     # via testslide
 pyre-check==0.9.19
@@ -71,7 +63,9 @@ pyre-check==0.9.19
 pyre-extensions==0.0.30
     # via pyre-check
 pyyaml==6.0.1
-    # via libcst
+    # via
+    #   libcst
+    #   pre-commit
 ruff==0.1.6
     # via -r requirements/requirements-dev.in
 sortedcontainers==2.4.0
@@ -80,13 +74,10 @@ tabulate==0.9.0
     # via pyre-check
 testslide==2.7.1
     # via pyre-check
-tomli==2.0.1
-    # via black
 typeguard==2.13.3
     # via testslide
 typing-extensions==4.8.0
     # via
-    #   black
     #   libcst
     #   pyre-check
     #   pyre-extensions
@@ -97,5 +88,10 @@ typing-inspect==0.9.0
     #   libcst
     #   pyre-check
     #   pyre-extensions
+virtualenv==20.25.0
+    # via pre-commit
 yarl==1.9.3
     # via aiohttp
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools

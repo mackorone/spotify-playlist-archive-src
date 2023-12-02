@@ -1,3 +1,4 @@
+src = ["src"]
+
 [lint]
-# See https://docs.astral.sh/ruff/rules/
 extend-select = ["I", "W"]

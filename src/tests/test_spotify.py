@@ -9,6 +9,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import aiohttp
+
 from alias import Alias
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
@@ -328,7 +329,6 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
 
 class TestGetPlaylist(SpotifyTestCase):
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
-    # pyre-fixme[30]
     async def test_invalid_data(self, mock_get_tracks: Mock) -> None:
         mock_get_tracks.return_value = []
         valid_data = {
@@ -512,8 +512,8 @@ class TestGetTracks(SpotifyTestCase):
                 ref = data
                 parts = [(int(x) if x.isdigit() else x) for x in key.split(".")]
                 for name in parts[:-1]:
-                    ref = ref[name]  # pyre-fixme[6]
-                ref[parts[-1]] = value  # pyre-fixme[16]
+                    ref = ref[name]
+                ref[parts[-1]] = value
                 async with self.mock_session.get.return_value as mock_response:
                     mock_response.json.return_value = data
                 spotify = Spotify("token")
