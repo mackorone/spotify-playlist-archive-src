@@ -3,7 +3,7 @@
 import dataclasses
 import datetime
 import json
-from typing import List, Mapping, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 from plants.markdown import MarkdownEscapedString
 from playlist_id import PlaylistID
@@ -55,6 +55,21 @@ class Formatter:
         for playlist_id, playlist in playlists.items():
             data[playlist_id] = playlist.unique_name
         return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
+    @classmethod
+    def followers_json(
+        cls,
+        prev_content: str,
+        today: datetime.date,
+        num_followers: Optional[int],
+    ) -> str:
+        try:
+            data = json.loads(prev_content)
+        except Exception:
+            data = {}
+        if num_followers is not None:
+            data[str(today)] = num_followers
+        return json.dumps(data, indent=2, sort_keys=True)
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:

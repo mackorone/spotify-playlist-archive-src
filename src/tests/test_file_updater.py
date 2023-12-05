@@ -167,7 +167,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
 
     async def test_empty(self) -> None:
-        names = ["registry", "plain", "pretty", "cumulative"]
+        names = ["registry", "plain", "pretty", "cumulative", "followers"]
         for name in names:
             self.assertFalse((self.playlists_dir / name).exists())
         await self._update_files_impl()

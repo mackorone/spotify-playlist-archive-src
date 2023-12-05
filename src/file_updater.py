@@ -186,6 +186,7 @@ class FileUpdater:
         # Process the playlists
         logger.info(f"Updating {len(playlists_to_update)} playlist(s)...")
         for playlist_id, playlist in sorted(playlists_to_update.items()):
+            assert isinstance(playlist, Playlist)
             logger.info(f"Playlist ID: {playlist_id}")
             logger.info(f"Playlist name: {playlist.unique_name}")
 
@@ -194,6 +195,7 @@ class FileUpdater:
             pretty_md_path = file_manager.get_pretty_markdown_path(playlist_id)
             cumulative_json_path = file_manager.get_cumulative_json_path(playlist_id)
             cumulative_md_path = file_manager.get_cumulative_markdown_path(playlist_id)
+            followers_json_path = file_manager.get_followers_json_path(playlist_id)
 
             # Update plain playlist
             prev_content = cls._get_file_content_or_empty_string(plain_path)
@@ -248,6 +250,17 @@ class FileUpdater:
                 prev_content=prev_content,
                 content=content,
                 path=cumulative_md_path,
+            )
+
+            # Update followers JSON
+            prev_content = cls._get_file_content_or_empty_string(followers_json_path)
+            content = Formatter.followers_json(
+                prev_content, today, playlist.num_followers
+            )
+            cls._write_to_file_if_content_changed(
+                prev_content=prev_content,
+                content=content,
+                path=followers_json_path,
             )
 
         # Check for unexpected files in playlist directories

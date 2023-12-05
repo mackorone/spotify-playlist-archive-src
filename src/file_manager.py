@@ -28,6 +28,7 @@ class FileManager:
             self._get_plain_dir(),
             self._get_pretty_dir(),
             self._get_cumulative_dir(),
+            self._get_followers_dir(),
             self._get_metadata_dir(),
         ]:
             directory.mkdir(parents=True, exist_ok=True)
@@ -102,6 +103,9 @@ class FileManager:
     def get_cumulative_markdown_path(self, playlist_id: PlaylistID) -> pathlib.Path:
         return self._get_cumulative_dir() / f"{playlist_id}.md"
 
+    def get_followers_json_path(self, playlist_id: PlaylistID) -> pathlib.Path:
+        return self._get_followers_dir() / f"{playlist_id}.json"
+
     def get_old_metadata_json_path(self) -> pathlib.Path:
         return self._playlists_dir / "metadata.json"
 
@@ -131,6 +135,9 @@ class FileManager:
 
     def _get_cumulative_dir(self) -> pathlib.Path:
         return self._playlists_dir / "cumulative"
+
+    def _get_followers_dir(self) -> pathlib.Path:
+        return self._playlists_dir / "followers"
 
     def _get_metadata_dir(self) -> pathlib.Path:
         return self._playlists_dir / "metadata"
