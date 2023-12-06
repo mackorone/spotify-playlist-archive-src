@@ -345,7 +345,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 """\
                 prev content
 
-                ## Playlists \\(3\\)
+                ## Playlists <a name="playlists"></a> \\(3\\)
 
                 - [name\\_a](/playlists/pretty/a.md)
                 - [name\\_b](/playlists/pretty/b.md)

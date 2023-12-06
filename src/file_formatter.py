@@ -27,7 +27,11 @@ class Formatter:
         old_lines = prev_content.splitlines()
         prefix = "## Playlists"
         index = next(i for i, line in enumerate(old_lines) if line.startswith(prefix))
-        header = prefix + MarkdownEscapedString(f" ({len(playlists)})")
+        header = (
+            prefix
+            + ' <a name="playlists"></a>'
+            + MarkdownEscapedString(f" ({len(playlists)})")
+        )
 
         playlist_tuples: List[Tuple[str, str]] = []
         for playlist_id, playlist in playlists.items():
