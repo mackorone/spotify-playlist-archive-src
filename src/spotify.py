@@ -60,7 +60,6 @@ class Spotify:
                         reason = f"Server error ({status})"
                     else:
                         data = await response.json(content_type=None)
-                        context = json.dumps({"request": href, "response": data})
                         if not isinstance(data, dict):
                             backoff_seconds = 1
                             reason = "Invalid response"
@@ -68,7 +67,8 @@ class Spotify:
                             backoff_seconds = 1
                             reason = "Empty response"
                         elif "error" in data:
-                            raise FailedRequestError(f"Failed request: {context}")
+                            context = json.dumps({"request": href, "response": data})
+                            raise FailedRequestError(context)
                         else:
                             return data
             except aiohttp.client_exceptions.ClientConnectionError:

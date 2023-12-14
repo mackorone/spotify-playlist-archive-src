@@ -116,8 +116,8 @@ class FileUpdater:
                 )
             # When playlists are deleted, the Spotify API returns 404; skip
             # those playlists (no updates) but retain them in the archive
-            except FailedRequestError:
-                logger.warning(f"Failed to fetch playlist: {playlist_id}")
+            except FailedRequestError as e:
+                logger.warning(f"Failed to fetch playlist {playlist_id}: {e}")
         logger.info("Done fetching playlists")
 
         # Gracefully handle playlists with the same name
