@@ -2,10 +2,11 @@
 
 import asyncio
 import base64
+import dataclasses
 import datetime
-import json
+import enum
 import logging
-from typing import Any, Dict, List, Optional, Set, Type, TypeVar
+from typing import Any, Dict, List, Mapping, Optional, Set, Type, TypeVar
 
 import aiohttp
 
@@ -20,11 +21,16 @@ logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class FailedRequestError(Exception):
-    pass
+#
+# Errors that propagate to the caller
+#
 
 
 class InvalidDataError(Exception):
+    pass
+
+
+class RequestFailedError(Exception):
     pass
 
 
@@ -32,59 +38,202 @@ class RetryBudgetExceededError(Exception):
     pass
 
 
+#
+# Errors that are transparently retried
+#
+
+
+@dataclasses.dataclass
+class RetryableError(Exception):
+    message: str
+    sleep_seconds: float = 1
+    refresh_access_token: bool = False
+
+
+class InvalidAccessTokenError(Exception):
+    pass
+
+
+@dataclasses.dataclass
+class RateLimitedError(Exception):
+    retry_after: int
+
+
+@dataclasses.dataclass
+class ServerError(Exception):
+    status: int
+
+
+class UnexpectedEmptyResponseError(Exception):
+    pass
+
+
+class HttpMethod(enum.Enum):
+    GET = enum.auto()
+    PUT = enum.auto()
+    POST = enum.auto()
+    DELETE = enum.auto()
+
+
+class ResponseType(enum.Enum):
+    JSON = enum.auto()
+    EMPTY = enum.auto()
+
+
 class Spotify:
     BASE_URL = "https://api.spotify.com/v1/"
 
-    def __init__(self, access_token: str) -> None:
-        headers = {"Authorization": f"Bearer {access_token}"}
-        self._session: aiohttp.ClientSession = self._get_session(headers=headers)
-        # Handle rate limiting by retrying
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+    ) -> None:
+        self._client_id: str = client_id
+        self._client_secret: str = client_secret
+        self._access_token: Optional[str] = None
         self._retry_budget_seconds: float = 300
+        self._session: aiohttp.ClientSession = self._get_session()
 
     async def _get_with_retry(
-        self, href: str, *, max_spend_seconds: Optional[float] = None
+        self, url: str, *, max_spend_seconds: Optional[float] = None
+    ) -> Dict[str, Any]:
+        return await self._make_retryable_request(
+            method=HttpMethod.GET,
+            url=url,
+            max_spend_seconds=max_spend_seconds,
+        )
+
+    async def _make_retryable_request(
+        self,
+        method: HttpMethod,
+        url: str,
+        json: Optional[Mapping[str, Any]] = None,
+        *,
+        expected_response_type: ResponseType = ResponseType.JSON,
+        max_spend_seconds: Optional[float] = None,
+        raise_if_request_fails: bool = True,
     ) -> Dict[str, Any]:
         if max_spend_seconds is None:
             max_spend_seconds = self._retry_budget_seconds
+
         while True:
+            # Lazily fetch access token
+            if not self._access_token:
+                logger.info("Getting new access token")
+                self._access_token = await self.get_access_token(
+                    client_id=self._client_id,
+                    client_secret=self._client_secret,
+                )
+                logger.info("Got new access token")
+
+            # Choose the correct method
+            func = {
+                HttpMethod.GET: self._session.get,
+                HttpMethod.PUT: self._session.put,
+                HttpMethod.POST: self._session.post,
+                HttpMethod.DELETE: self._session.delete,
+            }[method]
+
+            # Prepare the request
+            aenter_to_send_request = func(
+                url=url,
+                json=json,
+                headers={"Authorization": f"Bearer {self._access_token}"},
+            )
+
+            # Make a retryable attempt
             try:
-                async with self._session.get(href) as response:
-                    status = response.status
-                    if status == 429:
-                        # Add an extra second, just to be safe
-                        # https://stackoverflow.com/a/30557896/3176152
-                        backoff_seconds = int(response.headers["Retry-After"]) + 1
-                        reason = "Rate limited"
-                    elif status // 100 == 5:
-                        backoff_seconds = 1
-                        reason = f"Server error ({status})"
-                    else:
-                        data = await response.json(content_type=None)
-                        if not isinstance(data, dict):
-                            backoff_seconds = 1
-                            reason = "Invalid response"
-                        elif not data:
-                            backoff_seconds = 1
-                            reason = "Empty response"
-                        elif "error" in data:
-                            context = json.dumps({"request": href, "response": data})
-                            raise FailedRequestError(context)
-                        else:
-                            return data
-            except aiohttp.client_exceptions.ClientConnectionError:
-                backoff_seconds = 1
-                reason = "Connection problem"
-            except asyncio.exceptions.TimeoutError:
-                backoff_seconds = 1
-                reason = "Asyncio timeout"
-            self._retry_budget_seconds -= backoff_seconds
-            if self._retry_budget_seconds <= 0:
-                raise RetryBudgetExceededError("Session retry budget exceeded")
-            max_spend_seconds -= backoff_seconds
-            if max_spend_seconds <= 0:
-                raise RetryBudgetExceededError("Request retry budget exceeded")
-            logger.warning(f"{reason}, will retry after {backoff_seconds}s")
-            await self._sleep(backoff_seconds)
+                return await self._send_request_and_coerce_errors(
+                    aenter_to_send_request,
+                    expected_response_type,
+                    raise_if_request_fails,
+                )
+            except RetryableError as e:
+                if e.refresh_access_token:
+                    self._access_token = None
+                self._retry_budget_seconds -= e.sleep_seconds
+                if self._retry_budget_seconds <= 0:
+                    raise RetryBudgetExceededError("Overall retry budget exceeded")
+                max_spend_seconds -= e.sleep_seconds
+                if max_spend_seconds <= 0:
+                    raise RetryBudgetExceededError("Request retry budget exceeded")
+                logger.warning(f"{e.message}, will retry after {e.sleep_seconds}s")
+                await self._sleep(e.sleep_seconds)
+
+    @classmethod
+    async def _send_request_and_coerce_errors(
+        cls,
+        aenter_to_send_request: aiohttp.client._RequestContextManager,
+        expected_response_type: ResponseType,
+        raise_if_request_fails: bool,
+    ) -> Dict[str, Any]:
+        """Catch retryable errors and coerce them into uniform type"""
+        try:
+            return await cls._send_request(
+                aenter_to_send_request,
+                expected_response_type,
+                raise_if_request_fails,
+            )
+        except InvalidAccessTokenError:
+            raise RetryableError(
+                message="Invalid access token",
+                refresh_access_token=True,
+            )
+        except RateLimitedError as e:
+            raise RetryableError(
+                message="Rate limited",
+                # Add an extra second, just to be safe
+                # https://stackoverflow.com/a/30557896/3176152
+                sleep_seconds=e.retry_after + 1,
+            )
+        except ServerError as e:
+            raise RetryableError(f"Server error ({e.status})")
+        except aiohttp.ContentTypeError:
+            raise RetryableError("Invalid response (invalid JSON)")
+        except UnexpectedEmptyResponseError:
+            raise RetryableError("Invalid response (empty JSON)")
+        except aiohttp.client_exceptions.ClientConnectionError:
+            raise RetryableError("Connection problem")
+        except asyncio.exceptions.TimeoutError:
+            raise RetryableError("Asyncio timeout")
+
+    @classmethod
+    async def _send_request(
+        cls,
+        aenter_to_send_request: aiohttp.client._RequestContextManager,
+        expected_response_type: ResponseType,
+        raise_if_request_fails: bool,
+    ) -> Dict[str, Any]:
+        async with aenter_to_send_request as response:
+            status = response.status
+
+            # Straightforward retryable errors
+            if status == 401:
+                raise InvalidAccessTokenError()
+            if status == 429:
+                retry_after = int(response.headers["Retry-After"])
+                raise RateLimitedError(retry_after=retry_after)
+            if status >= 500:
+                raise ServerError(status=status)
+
+            # Sometimes Spotify just returns empty data
+            data = None
+            if expected_response_type == ResponseType.JSON:
+                data = await response.json()
+                if not data:
+                    raise UnexpectedEmptyResponseError()
+
+            # Handle unretryable error
+            if status >= 400 and raise_if_request_fails:
+                error = (data or {}).get("error") or {}
+                error_message = error.get("message")
+                raise RequestFailedError(f"{error_message} ({status})")
+
+            # Return data from "successful" request
+            if expected_response_type == ResponseType.JSON:
+                return data
+            assert expected_response_type == ResponseType.EMPTY
+            return {}
 
     async def shutdown(self) -> None:
         await self._session.close()
@@ -134,7 +283,7 @@ class Spotify:
             while href:
                 try:
                     data = await self._get_with_retry(href, max_spend_seconds=3)
-                except FailedRequestError:
+                except RequestFailedError:
                     # Weirdly, some categories return 404
                     break
                 playlists = self._get_optional(data, "playlists", dict)
@@ -359,10 +508,8 @@ class Spotify:
 
     @classmethod
     @external
-    def _get_session(
-        cls, headers: Optional[Dict[str, str]] = None
-    ) -> aiohttp.ClientSession:
-        return aiohttp.ClientSession(headers=headers)
+    def _get_session(cls) -> aiohttp.ClientSession:
+        return aiohttp.ClientSession()
 
     @classmethod
     @external

@@ -14,7 +14,7 @@ from git_utils import GitUtils
 from plants.environment import Environment
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
-from spotify import FailedRequestError, Spotify
+from spotify import RequestFailedError, Spotify
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -36,11 +36,11 @@ class FileUpdater:
         client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
         assert client_id and client_secret
 
-        # Initialize the Spotify client
-        access_token = await Spotify.get_access_token(
-            client_id=client_id, client_secret=client_secret
+        # Initialize Spotify client
+        spotify = Spotify(
+            client_id=client_id,
+            client_secret=client_secret,
         )
-        spotify = Spotify(access_token)
         try:
             await cls._update_files_impl(
                 now=now,
@@ -116,7 +116,7 @@ class FileUpdater:
                 )
             # When playlists are deleted, the Spotify API returns 404; skip
             # those playlists (no updates) but retain them in the archive
-            except FailedRequestError as e:
+            except RequestFailedError as e:
                 logger.warning(f"Failed to fetch playlist {playlist_id}: {e}")
         logger.info("Done fetching playlists")
 

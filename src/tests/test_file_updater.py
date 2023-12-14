@@ -14,7 +14,7 @@ from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
-from spotify import FailedRequestError
+from spotify import RequestFailedError
 
 T = TypeVar("T")
 
@@ -68,13 +68,8 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
                 call("SPOTIFY_CLIENT_SECRET"),
             ]
         )
-        self.mock_spotify_class.get_access_token.assert_called_once_with(
-            client_id="client_id",
-            client_secret="client_secret",
-        )
-        self.mock_spotify_class.get_access_token.assert_awaited_once()
         self.mock_spotify_class.assert_called_once_with(
-            self.mock_spotify_class.get_access_token.return_value
+            client_id="client_id", client_secret="client_secret"
         )
         self.mock_update_files_impl.assert_called_once_with(
             now=sentinel.now,
@@ -298,8 +293,8 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             [
                 self._fake_get_playlist(PlaylistID("a"), alias=None),
                 self._fake_get_playlist(PlaylistID("b"), alias=None),
-                FailedRequestError(),
-                FailedRequestError(),
+                RequestFailedError(),
+                RequestFailedError(),
             ]
         )
 
