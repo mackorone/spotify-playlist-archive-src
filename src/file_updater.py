@@ -107,8 +107,10 @@ class FileUpdater:
             numerator = str(i).rjust(len(denominator))
             progress_fraction = i / len(playlists_to_fetch)
             progress_percent = f"{progress_fraction:.1%}".rjust(5)
+            mins, secs = divmod((datetime.datetime.now() - now).total_seconds(), 60)
             logger.info(
-                f"({numerator} / {denominator} - {progress_percent}) {playlist_id}"
+                f"({numerator} / {denominator} - {progress_percent} "
+                f"- {int(mins)}m {int(secs):02}s) {playlist_id}"
             )
             try:
                 playlists[playlist_id] = await spotify.get_playlist(
