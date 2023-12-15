@@ -14,7 +14,7 @@ from git_utils import GitUtils
 from plants.environment import Environment
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
-from spotify import RequestFailedError, Spotify
+from spotify import ResourceNotFoundError, Spotify
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -101,6 +101,7 @@ class FileUpdater:
 
         # Update playlist data from Spotify
         playlists_to_fetch = sorted(only_fetch_these_playlists or registered_playlists)
+        num_unfetchable = 0
         logger.info(f"Fetching {len(playlists_to_fetch)} playlist(s)...")
         for i, playlist_id in enumerate(sorted(playlists_to_fetch)):
             denominator = str(len(playlists_to_fetch))
@@ -118,7 +119,8 @@ class FileUpdater:
                 )
             # When playlists are deleted, the Spotify API returns 404; skip
             # those playlists (no updates) but retain them in the archive
-            except RequestFailedError as e:
+            except ResourceNotFoundError as e:
+                num_unfetchable += 1
                 logger.warning(f"Failed to fetch playlist {playlist_id}: {e}")
         logger.info("Done fetching playlists")
 
@@ -269,6 +271,7 @@ class FileUpdater:
         file_manager.ensure_no_unexpected_files()
 
         # Update all metadata files
+        logger.info("Metadata")
         metadata_full_json = Formatter.metadata_full_json(playlists)
         metadata_compact_json = Formatter.metadata_compact_json(playlists)
         cls._maybe_update_file(
@@ -291,6 +294,9 @@ class FileUpdater:
             path=file_manager.get_metadata_compact_json_br_path(),
             content=brotli.compress(metadata_compact_json.encode()),
         )
+
+        logger.info("Summary")
+        logger.info(f"  Unfetchable playlists: {num_unfetchable}")
 
         # Lastly, update README.md
         if update_readme:

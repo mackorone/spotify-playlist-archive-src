@@ -31,6 +31,10 @@ class InvalidDataError(Exception):
 
 
 class RequestFailedError(Exception):
+    """Unhandled client error (4xx)"""
+
+
+class ResourceNotFoundError(Exception):
     pass
 
 
@@ -207,9 +211,11 @@ class Spotify:
         async with aenter_to_send_request as response:
             status = response.status
 
-            # Straightforward retryable errors
+            # Straightforward errors
             if status == 401:
                 raise InvalidAccessTokenError()
+            if status == 404:
+                raise ResourceNotFoundError()
             if status == 429:
                 retry_after = int(response.headers["Retry-After"])
                 raise RateLimitedError(retry_after=retry_after)
@@ -223,7 +229,7 @@ class Spotify:
                 if not data:
                     raise UnexpectedEmptyResponseError()
 
-            # Handle unretryable error
+            # Handle all other unretryable client errors
             if status >= 400 and raise_if_request_fails:
                 error = (data or {}).get("error") or {}
                 error_message = error.get("message")
@@ -283,7 +289,7 @@ class Spotify:
             while href:
                 try:
                     data = await self._get_with_retry(href, max_spend_seconds=3)
-                except RequestFailedError:
+                except ResourceNotFoundError:
                     # Weirdly, some categories return 404
                     break
                 playlists = self._get_optional(data, "playlists", dict)

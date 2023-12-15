@@ -14,7 +14,7 @@ from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Owner, Playlist
-from spotify import RequestFailedError
+from spotify import RequestFailedError, ResourceNotFoundError
 
 T = TypeVar("T")
 
@@ -171,6 +171,15 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         # Double check exist_ok = True
         await self._update_files_impl()
 
+    async def test_request_failed(self) -> None:
+        registry_dir = self.playlists_dir / "registry"
+        registry_dir.mkdir(parents=True)
+        (registry_dir / "foo").touch()
+        self.mock_spotify.get_playlist.side_effect = RequestFailedError
+        # Uncategorized request failures should terminate the program
+        with self.assertRaises(RequestFailedError):
+            await self._update_files_impl()
+
     async def test_auto_register(self) -> None:
         self.mock_spotify.get_spotify_user_playlist_ids.return_value = {"a", "d"}
         self.mock_spotify.get_featured_playlist_ids.return_value = {"b", "d"}
@@ -293,8 +302,8 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             [
                 self._fake_get_playlist(PlaylistID("a"), alias=None),
                 self._fake_get_playlist(PlaylistID("b"), alias=None),
-                RequestFailedError(),
-                RequestFailedError(),
+                ResourceNotFoundError(),
+                ResourceNotFoundError(),
             ]
         )
 

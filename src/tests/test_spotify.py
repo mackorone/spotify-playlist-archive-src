@@ -17,6 +17,7 @@ from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import (
     InvalidDataError,
     RequestFailedError,
+    ResourceNotFoundError,
     ResponseType,
     RetryableError,
     RetryBudgetExceededError,
@@ -174,10 +175,17 @@ class TestGetWithRetry(SpotifyTestCase):
             with self.assertRaises(RetryBudgetExceededError):
                 await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
-    async def test_failed_request(self) -> None:
+    async def test_playlist_not_found(self) -> None:
         async with self.mock_session.get() as mock_response:
             mock_response.status = 404
             mock_response.json.return_value = {"error": {"message": "Not found."}}
+        with self.assertRaises(ResourceNotFoundError):
+            await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
+
+    async def test_request_failed(self) -> None:
+        async with self.mock_session.get() as mock_response:
+            mock_response.status = 400
+            mock_response.json.return_value = {"error": None}
         with self.assertRaises(RequestFailedError):
             await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
@@ -522,7 +530,7 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
                         },
                     },
                     # category_3 doesn't actually exist
-                    RequestFailedError(),
+                    ResourceNotFoundError(),
                 ]
             )
         playlist_ids = await self.spotify.get_category_playlist_ids()
