@@ -193,6 +193,57 @@ class TestGetWithRetry(SpotifyTestCase):
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
+    async def test_overall_retry_budget(self, mock_logger: Mock) -> None:
+        # Case 1: does exceed budget
+        self.spotify._retry_budget_seconds = 0.9
+        self.mock_session.get.return_value.__aenter__.side_effect = [
+            AsyncMock(status=500),
+            AsyncMock(status=200),
+        ]
+        with self.assertRaises(RetryBudgetExceededError):
+            await self.spotify._get_with_retry("href")
+
+        # Case 2: on the line
+        self.spotify._retry_budget_seconds = 1.0
+        self.mock_session.get.return_value.__aenter__.side_effect = [
+            AsyncMock(status=500),
+            AsyncMock(status=200),
+        ]
+        with self.assertRaises(RetryBudgetExceededError):
+            await self.spotify._get_with_retry("href")
+
+        # Case 3: does not exceed budget
+        self.spotify._retry_budget_seconds = 1.1
+        self.mock_session.get.return_value.__aenter__.side_effect = [
+            AsyncMock(status=500),
+            AsyncMock(status=200, json=AsyncMock(return_value={"k": "v"})),
+        ]
+        self.assertEqual(await self.spotify._get_with_retry("href"), {"k": "v"})
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
+    async def test_request_retry_budget(self, mock_logger: Mock) -> None:
+        # Case 1: on the line (does exceed budget)
+        self.mock_session.get.return_value.__aenter__.side_effect = [
+            AsyncMock(status=500),
+            AsyncMock(status=500),
+            AsyncMock(status=500),
+            AsyncMock(status=200),
+        ]
+        with self.assertRaises(RetryBudgetExceededError):
+            # This method uses max_spend_seconds=3
+            await self.spotify.get_category_playlist_ids()
+
+        # Case 2: does not exceed budget
+        self.mock_session.get.return_value.__aenter__.side_effect = [
+            AsyncMock(status=500),
+            AsyncMock(status=500),
+            AsyncMock(status=200, json=AsyncMock(return_value={"categories": None})),
+        ]
+        self.assertEqual(await self.spotify.get_category_playlist_ids(), set())
+
+    # Patch the logger to suppress log spew
+    @patch("spotify.logger")
     async def test_transient_server_error(self, mock_logger: Mock) -> None:
         mock_responses = [AsyncMock(), AsyncMock()]
         async with mock_responses[0] as mock_response:
