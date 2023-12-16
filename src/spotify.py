@@ -211,11 +211,9 @@ class Spotify:
         async with aenter_to_send_request as response:
             status = response.status
 
-            # Straightforward errors
+            # Straightforward retryable errors, no error info needed
             if status == 401:
                 raise InvalidAccessTokenError()
-            if status == 404:
-                raise ResourceNotFoundError()
             if status == 429:
                 retry_after = int(response.headers["Retry-After"])
                 raise RateLimitedError(retry_after=retry_after)
@@ -229,11 +227,15 @@ class Spotify:
                 if not data:
                     raise UnexpectedEmptyResponseError()
 
-            # Handle all other unretryable client errors
-            if status >= 400 and raise_if_request_fails:
+            # Handle unretryable client errors
+            if status >= 400:
                 error = (data or {}).get("error") or {}
                 error_message = error.get("message")
-                raise RequestFailedError(f"{error_message} ({status})")
+                error_info = f"{error_message} ({status})"
+                if status == 404:
+                    raise ResourceNotFoundError(error_info)
+                if raise_if_request_fails:
+                    raise RequestFailedError(error_info)
 
             # Return data from "successful" request
             if expected_response_type == ResponseType.JSON:
