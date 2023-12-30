@@ -90,10 +90,10 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.playlists_dir = self.repo_dir / "playlists"
         self.file_manager = FileManager(self.playlists_dir)
 
-        # Mock the GitUtils methods
+        # Mock some external methods
         UnittestUtils.patch(
             self,
-            "git_utils.GitUtils.any_uncommitted_changes",
+            "plants.environment.Environment.is_push_github_action",
             new_callable=lambda: Mock(return_value=False),
         )
         UnittestUtils.patch(

@@ -69,11 +69,10 @@ class FileUpdater:
         # those playlists. This makes adding new playlists cheap.
         logger.info("Checking if last commit was registry-only")
         only_fetch_these_playlists: Optional[Set[PlaylistID]] = None
-        uncommitted_changes = GitUtils.any_uncommitted_changes()
         last_commit_content = GitUtils.get_last_commit_content()
-        # To prevent suprising behavior when testing locally, don't perform the
-        # optimization if there are local changes
-        if (not uncommitted_changes) and all(
+        # To prevent suprising behavior when testing locally, only perform the
+        # optimization if the script was triggered by a GitHub push
+        if Environment.is_push_github_action() and all(
             path.startswith("playlists/registry") for path in last_commit_content
         ):
             only_fetch_these_playlists = {
