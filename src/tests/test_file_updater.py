@@ -50,7 +50,6 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
                 now=sentinel.now,
                 file_manager=sentinel.file_manager,
                 auto_register=sentinel.auto_register,
-                update_readme=sentinel.update_readme,
             )
         self.mock_spotify_class.return_value.shutdown.assert_called_once_with()
         self.mock_spotify_class.return_value.shutdown.assert_awaited_once()
@@ -60,7 +59,6 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             now=sentinel.now,
             file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
-            update_readme=sentinel.update_readme,
         )
         self.mock_get_env.assert_has_calls(
             [
@@ -75,7 +73,6 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             now=sentinel.now,
             file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
-            update_readme=sentinel.update_readme,
             spotify=self.mock_spotify_class.return_value,
         )
         self.mock_spotify_class.return_value.shutdown.assert_called_once_with()
@@ -120,13 +117,13 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         self.temp_dir.cleanup()
 
     async def _update_files_impl(
-        self, auto_register: bool = False, update_readme: bool = False
+        self,
+        auto_register: bool = False,
     ) -> None:
         await FileUpdater._update_files_impl(
             now=self.now,
             file_manager=self.file_manager,
             auto_register=auto_register,
-            update_readme=update_readme,
             spotify=self.mock_spotify,
         )
 
@@ -290,7 +287,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
     # Patch the logger to suppress log spew
     @patch("file_updater.logger")
-    async def test_readme_and_metadata_json(self, mock_logger: Mock) -> None:
+    async def test_index_and_metadata_json(self, mock_logger: Mock) -> None:
         # +-------------------+---+---+---+---+
         # |     Criteria      | a | b | c | d |
         # +-------------------+---+---+---+---+
@@ -328,28 +325,24 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
             with open(path, "w") as f:
                 f.write(playlist_json)
 
-        with open(self.repo_dir / "README.md", "w") as f:
+        with open(self.playlists_dir / "index.md", "w") as f:
             f.write(
                 textwrap.dedent(
                     """\
-                    prev content
-
                     ## Playlists \\(1\\)
 
                     - [fizz](buzz)
                     """
                 )
             )
-        await self._update_files_impl(update_readme=True)
-        with open(self.repo_dir / "README.md", "r") as f:
+        await self._update_files_impl()
+        with open(self.playlists_dir / "index.md", "r") as f:
             content = f.read()
         self.assertEqual(
             content,
             textwrap.dedent(
                 """\
-                prev content
-
-                ## Playlists <a name="playlists"></a> \\(3\\)
+                ## Playlists \\(3\\)
 
                 - [name\\_a](/playlists/pretty/a.md)
                 - [name\\_b](/playlists/pretty/b.md)

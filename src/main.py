@@ -44,7 +44,6 @@ async def main() -> None:
         now=now,
         file_manager=file_manager,
         auto_register=auto_register,
-        update_readme=commit_and_push,
     )
     if commit_and_push:
         Committer.commit_and_push_if_github_actions()

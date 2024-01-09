@@ -121,8 +121,8 @@ class FileManager:
     def get_metadata_compact_json_br_path(self) -> pathlib.Path:
         return self._get_metadata_dir() / "metadata-compact.json.br"
 
-    def get_readme_path(self) -> pathlib.Path:
-        return self._playlists_dir.parent / "README.md"
+    def get_index_path(self) -> pathlib.Path:
+        return self._playlists_dir / "index.md"
 
     def _get_registry_dir(self) -> pathlib.Path:
         return self._playlists_dir / "registry"

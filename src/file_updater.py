@@ -29,7 +29,6 @@ class FileUpdater:
         now: datetime.datetime,
         file_manager: FileManager,
         auto_register: bool,
-        update_readme: bool,
     ) -> None:
         # Check nonempty to fail fast
         client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
@@ -46,7 +45,6 @@ class FileUpdater:
                 now=now,
                 file_manager=file_manager,
                 auto_register=auto_register,
-                update_readme=update_readme,
                 spotify=spotify,
             )
         finally:
@@ -58,7 +56,6 @@ class FileUpdater:
         now: datetime.datetime,
         file_manager: FileManager,
         auto_register: bool,
-        update_readme: bool,
         spotify: Spotify,
     ) -> None:
         # Ensure the output directories exist
@@ -297,13 +294,11 @@ class FileUpdater:
         logger.info("Summary")
         logger.info(f"  Unfetchable playlists: {num_unfetchable}")
 
-        # Lastly, update README.md
-        if update_readme:
-            readme_path = file_manager.get_readme_path()
-            with open(readme_path, "r") as f:
-                prev_content = f.read()
-            content = Formatter.readme(prev_content, playlists)
-            cls._write_to_file_if_content_changed(prev_content, content, readme_path)
+        # Lastly, update index.md
+        cls._maybe_update_file(
+            path=file_manager.get_index_path(),
+            content=Formatter.index(playlists),
+        )
 
     @classmethod
     async def _auto_register(cls, spotify: Spotify, file_manager: FileManager) -> None:
