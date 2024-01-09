@@ -190,41 +190,27 @@ class FileUpdater:
             logger.info(f"Playlist ID: {playlist_id}")
             logger.info(f"Playlist name: {playlist.unique_name}")
 
-            plain_path = file_manager.get_plain_path(playlist_id)
-            pretty_json_path = file_manager.get_pretty_json_path(playlist_id)
-            pretty_md_path = file_manager.get_pretty_markdown_path(playlist_id)
-            cumulative_json_path = file_manager.get_cumulative_json_path(playlist_id)
-            cumulative_md_path = file_manager.get_cumulative_markdown_path(playlist_id)
-            followers_json_path = file_manager.get_followers_json_path(playlist_id)
-
             # Update plain playlist
-            prev_content = cls._get_file_content_or_empty_string(plain_path)
-            content = Formatter.plain(playlist_id, playlist)
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
-                content=content,
-                path=plain_path,
+            cls._maybe_update_file(
+                path=file_manager.get_plain_path(playlist_id),
+                content=Formatter.plain(playlist_id, playlist),
             )
 
             # Update pretty JSON
-            prev_content = cls._get_file_content_or_empty_string(pretty_json_path)
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
+            cls._maybe_update_file(
+                path=file_manager.get_pretty_json_path(playlist_id),
                 content=playlist.to_json() + "\n",
-                path=pretty_json_path,
             )
 
             # Update pretty markdown
-            prev_content = cls._get_file_content_or_empty_string(pretty_md_path)
-            content = Formatter.pretty(playlist_id, playlist)
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
-                content=content,
-                path=pretty_md_path,
+            cls._maybe_update_file(
+                path=file_manager.get_pretty_markdown_path(playlist_id),
+                content=Formatter.pretty(playlist_id, playlist),
             )
 
             # Update cumulative JSON
             today = now.date()
+            cumulative_json_path = file_manager.get_cumulative_json_path(playlist_id)
             prev_content = cls._get_file_content_or_empty_string(cumulative_json_path)
             if prev_content:
                 prev_struct = CumulativePlaylist.from_json(prev_content)
@@ -237,30 +223,23 @@ class FileUpdater:
                     date_first_scraped=today,
                 )
             new_struct = prev_struct.update(today, playlist)
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
-                content=new_struct.to_json() + "\n",
+            cls._maybe_update_file(
                 path=cumulative_json_path,
+                content=new_struct.to_json() + "\n",
             )
 
             # Update cumulative markdown
-            prev_content = cls._get_file_content_or_empty_string(cumulative_md_path)
-            content = Formatter.cumulative(playlist_id, new_struct)
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
-                content=content,
-                path=cumulative_md_path,
+            cls._maybe_update_file(
+                path=file_manager.get_cumulative_markdown_path(playlist_id),
+                content=Formatter.cumulative(playlist_id, new_struct),
             )
 
             # Update followers JSON
-            prev_content = cls._get_file_content_or_empty_string(followers_json_path)
-            content = Formatter.followers_json(
-                prev_content, today, playlist.num_followers
-            )
-            cls._write_to_file_if_content_changed(
-                prev_content=prev_content,
-                content=content,
-                path=followers_json_path,
+            cls._maybe_update_file(
+                path=file_manager.get_followers_json_path(playlist_id),
+                content=Formatter.followers_json(
+                    prev_content, today, playlist.num_followers
+                ),
             )
 
         # Check for unexpected files in playlist directories
@@ -270,6 +249,10 @@ class FileUpdater:
         logger.info("Metadata")
         metadata_full_json = Formatter.metadata_full_json(playlists)
         metadata_compact_json = Formatter.metadata_compact_json(playlists)
+        cls._maybe_update_file(
+            path=file_manager.get_index_path(),
+            content=Formatter.index(playlists),
+        )
         cls._maybe_update_file(
             path=file_manager.get_metadata_full_json_path(),
             content=metadata_full_json + "\n",
@@ -288,13 +271,10 @@ class FileUpdater:
         )
 
         logger.info("Summary")
-        logger.info(f"  Unfetchable playlists: {num_unfetchable}")
-
-        # Lastly, update index.md
-        cls._maybe_update_file(
-            path=file_manager.get_index_path(),
-            content=Formatter.index(playlists),
-        )
+        num_attempted = len(playlists_to_fetch)
+        logger.info(f"  Attempted to fetch: {num_attempted}")
+        logger.info(f"  Fetch succeeded: {num_attempted - num_unfetchable}")
+        logger.info(f"  Fetch failed: {num_unfetchable}")
 
     @classmethod
     async def _auto_register(cls, spotify: Spotify, file_manager: FileManager) -> None:
