@@ -106,9 +106,6 @@ class FileManager:
     def get_followers_json_path(self, playlist_id: PlaylistID) -> pathlib.Path:
         return self._get_followers_dir() / f"{playlist_id}.json"
 
-    def get_old_metadata_json_path(self) -> pathlib.Path:
-        return self._playlists_dir / "metadata.json"
-
     def get_metadata_full_json_path(self) -> pathlib.Path:
         return self._get_metadata_dir() / "metadata-full.json"
 

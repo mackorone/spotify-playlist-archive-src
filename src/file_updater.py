@@ -271,10 +271,6 @@ class FileUpdater:
         metadata_full_json = Formatter.metadata_full_json(playlists)
         metadata_compact_json = Formatter.metadata_compact_json(playlists)
         cls._maybe_update_file(
-            path=file_manager.get_old_metadata_json_path(),
-            content=metadata_full_json + "\n",
-        )
-        cls._maybe_update_file(
             path=file_manager.get_metadata_full_json_path(),
             content=metadata_full_json + "\n",
         )
