@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import asyncio
 import base64
 import dataclasses
 import datetime
 import enum
 import logging
+from types import TracebackType
 from typing import Any, Dict, List, Mapping, Optional, Set, Type, TypeVar
 
 import aiohttp
@@ -97,6 +100,17 @@ class Spotify:
         self._access_token: Optional[str] = None
         self._retry_budget_seconds: float = 300
         self._session: aiohttp.ClientSession = self._get_session()
+
+    async def __aenter__(self) -> Spotify:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Type[BaseException],
+        exc_value: BaseException,
+        traceback: TracebackType,
+    ) -> None:
+        await self.shutdown()
 
     async def _get_with_retry(
         self, url: str, *, max_spend_seconds: Optional[float] = None

@@ -324,8 +324,14 @@ class TestGetWithRetry(SpotifyTestCase):
 
 
 class TestShutdown(SpotifyTestCase):
-    async def test_success(self) -> None:
+    async def test_explicit_shutdown(self) -> None:
         await self.spotify.shutdown()
+        self.mock_session.close.assert_called_once()
+        self.mock_sleep.assert_called_once_with(0)
+
+    async def test_context_manager(self) -> None:
+        async with self.spotify:
+            pass
         self.mock_session.close.assert_called_once()
         self.mock_sleep.assert_called_once_with(0)
 

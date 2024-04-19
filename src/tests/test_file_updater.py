@@ -31,13 +31,12 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             "SPOTIFY_CLIENT_SECRET": "client_secret",
         }[name]
 
+        self.mock_spotify = AsyncMock()
         self.mock_spotify_class = UnittestUtils.patch(
             self,
             "file_updater.Spotify",
-            new_callable=Mock,
+            new_callable=lambda: Mock(return_value=self.mock_spotify),
         )
-        self.mock_spotify_class.get_access_token = AsyncMock()
-        self.mock_spotify_class.return_value.shutdown = AsyncMock()
 
         self.mock_update_files_impl = UnittestUtils.patch(
             self, "file_updater.FileUpdater._update_files_impl", new_callable=AsyncMock
@@ -51,8 +50,8 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
                 file_manager=sentinel.file_manager,
                 auto_register=sentinel.auto_register,
             )
-        self.mock_spotify_class.return_value.shutdown.assert_called_once_with()
-        self.mock_spotify_class.return_value.shutdown.assert_awaited_once()
+        self.mock_spotify.__aexit__.assert_called_once()
+        self.mock_spotify.__aexit__.assert_awaited_once()
 
     async def test_success(self) -> None:
         await FileUpdater.update_files(
@@ -73,10 +72,10 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             now=sentinel.now,
             file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
-            spotify=self.mock_spotify_class.return_value,
+            spotify=self.mock_spotify.__aenter__.return_value,
         )
-        self.mock_spotify_class.return_value.shutdown.assert_called_once_with()
-        self.mock_spotify_class.return_value.shutdown.assert_awaited_once()
+        self.mock_spotify.__aexit__.assert_called_once_with(None, None, None)
+        self.mock_spotify.__aexit__.assert_awaited_once()
 
 
 class TestUpdateFilesImpl(IsolatedAsyncioTestCase):

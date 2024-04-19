@@ -35,20 +35,16 @@ class FileUpdater:
         client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
         assert client_id and client_secret
 
-        # Initialize Spotify client
-        spotify = Spotify(
+        async with Spotify(
             client_id=client_id,
             client_secret=client_secret,
-        )
-        try:
+        ) as spotify:
             await cls._update_files_impl(
                 now=now,
                 file_manager=file_manager,
                 auto_register=auto_register,
                 spotify=spotify,
             )
-        finally:
-            await spotify.shutdown()
 
     @classmethod
     async def _update_files_impl(
