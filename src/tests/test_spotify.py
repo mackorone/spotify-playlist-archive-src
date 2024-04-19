@@ -781,7 +781,11 @@ class TestGetTracks(SpotifyTestCase):
                 async with self.mock_session.get.return_value as mock_response:
                     mock_response.status = 200
                     mock_response.json.return_value = data
-                with self.assertRaises(InvalidDataError):
+                if key == "items":
+                    exception_class = ResourceNotFoundError
+                else:
+                    exception_class = InvalidDataError
+                with self.assertRaises(exception_class):
                     await self.spotify._get_tracks(PlaylistID("abc123"))
 
     async def test_empty_playlist(self) -> None:

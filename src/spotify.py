@@ -386,7 +386,14 @@ class Spotify:
 
         while href:
             data = await self._get_with_retry(href)
-            items = self._get_required(data, "items", list)
+            # If tracks cannot be fetched, this playlist is broken and should
+            # be treated the same as if all data was unfetchable
+            try:
+                items = self._get_required(data, "items", list)
+            except InvalidDataError:
+                raise ResourceNotFoundError(
+                    f"Failed to get tracks for playlist {playlist_id}"
+                )
             for item in items:
                 if not isinstance(item, dict):
                     raise InvalidDataError(f"Invalid item: {item}")
