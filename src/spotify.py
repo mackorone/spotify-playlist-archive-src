@@ -424,7 +424,11 @@ class Spotify:
                         raise InvalidDataError(f"Invalid artist: {artist}")
                     artist_urls = self._get_required(artist, "external_urls", dict)
                     artist_url = self._get_optional(artist_urls, "spotify", str) or ""
-                    artist_name = self._get_optional(artist, "name", str) or ""
+                    artist_name = (
+                        self._get_optional(artist, "name", str)
+                        or self._get_optional(artist, "type", str)
+                        or ""
+                    )
                     if not artist_name:
                         logger.warning(f"Empty artist name: {artist_url}")
                     artist_objs.append(Artist(url=artist_url, name=artist_name))
