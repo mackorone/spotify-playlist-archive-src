@@ -381,20 +381,18 @@ class Spotify:
                 if not track:
                     continue
                 track_urls = self._get_required(track, "external_urls", dict)
-                track_url = self._get_optional(track_urls, "spotify", str)
+                track_url = self._get_optional(track_urls, "spotify", str) or ""
                 if not track_url:
                     logger.warning("Skipping track with empty URL")
                     continue
-                track_name = self._get_required(track, "name", str)
+                track_name = self._get_optional(track, "name", str) or ""
                 if not track_name:
                     logger.warning(f"Empty track name: {track_url}")
 
                 album = self._get_required(track, "album", dict)
                 album_urls = self._get_required(album, "external_urls", dict)
-                album_url = self._get_optional(album_urls, "spotify", str)
-                if not album_url:
-                    album_url = ""
-                album_name = self._get_required(album, "name", str)
+                album_url = self._get_optional(album_urls, "spotify", str) or ""
+                album_name = self._get_optional(album, "name", str) or ""
                 if not album_name:
                     logger.warning(f"Empty album name: {album_url}")
 
@@ -404,10 +402,8 @@ class Spotify:
                     if not isinstance(artist, dict):
                         raise InvalidDataError(f"Invalid artist: {artist}")
                     artist_urls = self._get_required(artist, "external_urls", dict)
-                    artist_url = self._get_optional(artist_urls, "spotify", str)
-                    if not artist_url:
-                        artist_url = ""
-                    artist_name = self._get_required(artist, "name", str)
+                    artist_url = self._get_optional(artist_urls, "spotify", str) or ""
+                    artist_name = self._get_optional(artist, "name", str) or ""
                     if not artist_name:
                         logger.warning(f"Empty artist name: {artist_url}")
                     artist_objs.append(Artist(url=artist_url, name=artist_name))
