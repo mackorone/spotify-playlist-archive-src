@@ -9,7 +9,16 @@ import datetime
 import enum
 import logging
 from types import TracebackType
-from typing import Any, Dict, List, Mapping, Optional, Set, Type, TypeVar
+from typing import (
+    Any,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+)
 
 import aiohttp
 
@@ -85,6 +94,12 @@ class HttpMethod(enum.Enum):
 class ResponseType(enum.Enum):
     JSON = enum.auto()
     EMPTY = enum.auto()
+
+
+# What to do if a dictionary key is missing or the value is null
+class IfNull(enum.Enum):
+    RAISE = enum.auto()
+    COALESCE = enum.auto()
 
 
 class Spotify:
@@ -279,7 +294,7 @@ class Spotify:
         href = self.BASE_URL + "browse/featured-playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
-            playlists = self._get_optional(data, "playlists", dict)
+            playlists = self._extract(data, "playlists", dict, IfNull.COALESCE)
             if not playlists:
                 href = None
                 continue
@@ -294,7 +309,7 @@ class Spotify:
         href = self.BASE_URL + "browse/categories?limit=50"
         while href:
             data = await self._get_with_retry(href, max_spend_seconds=3)
-            categories = self._get_optional(data, "categories", dict)
+            categories = self._extract(data, "categories", dict, IfNull.COALESCE)
             if not categories:
                 href = None
                 continue
@@ -308,7 +323,7 @@ class Spotify:
                 except ResourceNotFoundError:
                     # Weirdly, some categories return 404
                     break
-                playlists = self._get_optional(data, "playlists", dict)
+                playlists = self._extract(data, "playlists", dict, IfNull.COALESCE)
                 if not playlists:
                     href = None
                     continue
@@ -319,11 +334,11 @@ class Spotify:
     @classmethod
     def _extract_ids(cls, data: Dict[str, Any]) -> Set[str]:
         ids: Set[str] = set()
-        items = cls._get_optional(data, "items", list)
-        for item in items or []:
+        items = cls._extract(data, "items", list, IfNull.COALESCE)
+        for item in items:
             if not isinstance(item, dict):
                 continue
-            id_ = cls._get_optional(item, "id", str)
+            id_ = cls._extract(item, "id", str, IfNull.COALESCE)
             if not id_:
                 continue
             ids.add(id_)
@@ -335,29 +350,27 @@ class Spotify:
         href = self._get_playlist_href(playlist_id)
         data = await self._get_with_retry(href)
 
-        playlist_urls = self._get_required(data, "external_urls", dict)
-        playlist_url = self._get_optional(playlist_urls, "spotify", str)
-        if not playlist_url:
-            playlist_url = ""
+        playlist_urls = self._extract(data, "external_urls", dict, IfNull.RAISE)
+        playlist_url = self._extract(playlist_urls, "spotify", str, IfNull.COALESCE)
 
         if alias:
             name = alias
         else:
-            name = self._get_required(data, "name", str)
+            name = self._extract(data, "name", str, IfNull.RAISE)
         if not name.strip():
             raise InvalidDataError(f"Empty playlist name: {repr(name)}")
 
-        followers = self._get_required(data, "followers", dict)
-        followers_total = self._get_optional(followers, "total", int)
+        followers = self._extract(data, "followers", dict, IfNull.RAISE)
+        followers_total = followers.get("total")
         if followers_total is None:
             logger.warning(f"Null followers total: {playlist_id}")
+        if not isinstance(followers_total, int):
+            raise InvalidDataError(f"Invalid followers total: {followers_total}")
 
-        owner = self._get_required(data, "owner", dict)
-        owner_urls = self._get_required(owner, "external_urls", dict)
-        owner_url = self._get_optional(owner_urls, "spotify", str)
-        if not owner_url:
-            owner_url = ""
-        owner_name = self._get_required(owner, "display_name", str)
+        owner = self._extract(data, "owner", dict, IfNull.RAISE)
+        owner_urls = self._extract(owner, "external_urls", dict, IfNull.RAISE)
+        owner_url = self._extract(owner_urls, "spotify", str, IfNull.COALESCE)
+        owner_name = self._extract(owner, "display_name", str, IfNull.COALESCE)
         if not owner_name:
             logger.warning(f"Empty owner name: {owner_url}")
 
@@ -370,9 +383,9 @@ class Spotify:
             # than defining separate structs for playlists fetched from Spotify
             # and playlists read from JSON.
             unique_name=name,
-            description=self._get_required(data, "description", str),
+            description=self._extract(data, "description", str, IfNull.RAISE),
             tracks=await self._get_tracks(playlist_id),
-            snapshot_id=self._get_required(data, "snapshot_id", str),
+            snapshot_id=self._extract(data, "snapshot_id", str, IfNull.RAISE),
             num_followers=followers_total,
             owner=Owner(
                 url=owner_url,
@@ -389,7 +402,7 @@ class Spotify:
             # If tracks cannot be fetched, this playlist is broken and should
             # be treated the same as if all data was unfetchable
             try:
-                items = self._get_required(data, "items", list)
+                items = self._extract(data, "items", list, IfNull.RAISE)
             except InvalidDataError:
                 raise ResourceNotFoundError(
                     f"Failed to get tracks for playlist {playlist_id}"
@@ -398,35 +411,39 @@ class Spotify:
                 if not isinstance(item, dict):
                     raise InvalidDataError(f"Invalid item: {item}")
 
-                track = self._get_optional(item, "track", dict)
+                track = self._extract(item, "track", dict, IfNull.COALESCE)
                 if not track:
                     continue
-                track_urls = self._get_required(track, "external_urls", dict)
-                track_url = self._get_optional(track_urls, "spotify", str) or ""
+                track_urls = self._extract(track, "external_urls", dict, IfNull.RAISE)
+                track_url = self._extract(track_urls, "spotify", str, IfNull.COALESCE)
                 if not track_url:
                     logger.warning("Skipping track with empty URL")
                     continue
-                track_name = self._get_optional(track, "name", str) or ""
+                track_name = self._extract(track, "name", str, IfNull.COALESCE)
                 if not track_name:
                     logger.warning(f"Empty track name: {track_url}")
 
-                album = self._get_required(track, "album", dict)
-                album_urls = self._get_required(album, "external_urls", dict)
-                album_url = self._get_optional(album_urls, "spotify", str) or ""
-                album_name = self._get_optional(album, "name", str) or ""
+                album = self._extract(track, "album", dict, IfNull.RAISE)
+                album_urls = self._extract(album, "external_urls", dict, IfNull.RAISE)
+                album_url = self._extract(album_urls, "spotify", str, IfNull.COALESCE)
+                album_name = self._extract(album, "name", str, IfNull.COALESCE)
                 if not album_name:
                     logger.warning(f"Empty album name: {album_url}")
 
-                artists = self._get_required(track, "artists", list)
+                artists = self._extract(track, "artists", list, IfNull.RAISE)
                 artist_objs = []
                 for artist in artists:
                     if not isinstance(artist, dict):
                         raise InvalidDataError(f"Invalid artist: {artist}")
-                    artist_urls = self._get_required(artist, "external_urls", dict)
-                    artist_url = self._get_optional(artist_urls, "spotify", str) or ""
+                    artist_urls = self._extract(
+                        artist, "external_urls", dict, IfNull.RAISE
+                    )
+                    artist_url = self._extract(
+                        artist_urls, "spotify", str, IfNull.COALESCE
+                    )
                     artist_name = (
-                        self._get_optional(artist, "name", str)
-                        or self._get_optional(artist, "type", str)
+                        self._extract(artist, "name", str, IfNull.COALESCE)
+                        or self._extract(artist, "type", str, IfNull.COALESCE)
                         or ""
                     )
                     if not artist_name:
@@ -436,9 +453,9 @@ class Spotify:
                 if not artist_objs:
                     logger.warning(f"Empty track artists: {track_url}")
 
-                duration_ms = self._get_required(track, "duration_ms", int)
+                duration_ms = self._extract(track, "duration_ms", int, IfNull.RAISE)
 
-                added_at_string = self._get_optional(item, "added_at", str)
+                added_at_string = self._extract(item, "added_at", str, IfNull.COALESCE)
                 if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
                     added_at = datetime.datetime.strptime(
                         added_at_string, "%Y-%m-%dT%H:%M:%SZ"
@@ -465,27 +482,25 @@ class Spotify:
         return tracks
 
     @classmethod
-    def _get_required(
+    def _extract(
         cls,
         dict_: Dict[str, Any],
         key: str,
         type_: Type[T],
+        if_null: IfNull,
     ) -> T:
         value = dict_.get(key)
+        if value is None:
+            if if_null is IfNull.RAISE:
+                raise InvalidDataError(f"Missing key: {key}")
+            if if_null is IfNull.COALESCE:
+                return type_()
+            raise RuntimeError(f"Unrecognized IfNull value: {if_null}")
         if not isinstance(value, type_):
-            raise InvalidDataError(f"Invalid {key}: {value}")
-        return value
-
-    @classmethod
-    def _get_optional(
-        cls,
-        dict_: Dict[str, Any],
-        key: str,
-        type_: Type[T],
-    ) -> Optional[T]:
-        value = dict_.get(key)
-        if not isinstance(value, (type_, type(None))):
-            raise InvalidDataError(f"Invalid {key}: {value}")
+            raise InvalidDataError(
+                f"Invalid value for {key}, expected {type_.__name__} but got "
+                f"{type(value).__name__}: {value}"
+            )
         return value
 
     @classmethod
