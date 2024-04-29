@@ -114,7 +114,7 @@ class FileUpdater:
             denominator = str(len(playlists_to_fetch))
             numerator = str(i).rjust(len(denominator))
             progress_fraction = i / len(playlists_to_fetch)
-            progress_percent = f"{progress_fraction:.1%}".rjust(5)
+            progress_percent = f"{progress_fraction:.2%}".rjust(5)
             mins, secs = divmod((datetime.datetime.now() - now).total_seconds(), 60)
             logger.info(
                 f"({numerator} / {denominator} - {progress_percent} "
@@ -260,14 +260,14 @@ class FileUpdater:
             )
 
             # Print out plain file changes
-            logger.info(f"  {file_changes.num_lines_in_old_version  = :>5}")
-            logger.info(f"  {file_changes.num_lines_in_new_version  = :>5}")
-            logger.info(f"  {file_changes.num_lines_kept            = :>5}")
-            logger.info(f"  {file_changes.num_lines_added           = :>5}")
-            logger.info(f"  {file_changes.num_lines_removed         = :>5}")
-            logger.info(f"  {file_changes.growth_fraction           = :.3f}")
-            logger.info(f"  {file_changes.fraction_of_lines_kept    = :.3f}")
-            logger.info(f"  {file_changes.fraction_of_lines_removed = :.3f}")
+            logger.info(
+                f"{file_changes.num_lines_in_new_version} / "
+                f"{file_changes.num_lines_in_old_version} = "
+                f"{file_changes.growth_fraction:.3}  "
+                f"(~{file_changes.num_lines_kept}, "
+                f"+{file_changes.num_lines_added}, "
+                f"-{file_changes.num_lines_removed})"
+            )
 
         # Check for unexpected files in playlist directories
         file_manager.ensure_no_unexpected_files()
@@ -297,20 +297,27 @@ class FileUpdater:
             content=brotli.compress(metadata_compact_json.encode()),
         )
 
-        logger.info("Growth fractions")
+        logger.info("Nontrivial growth fractions")
         for playlist_id, file_changes in sorted(
             plain_file_changes.items(),
             key=lambda pair: (-1 * pair[1].growth_fraction, pair[0]),
         ):
-            logger.info(f"  {playlist_id}: {file_changes.growth_fraction:.3f}")
+            if file_changes.growth_fraction != 1:
+                logger.info(f"  {playlist_id}: {file_changes.growth_fraction:.3f}")
 
-        logger.info("Empty playlists")
-        for playlist_id, file_changes in sorted(
-            plain_file_changes.items(),
-            key=lambda pair: pair[0],
-        ):
-            if file_changes.num_lines_in_new_version == 0:
+        empty_playlists = sorted(
+            [
+                playlist_id
+                for playlist_id, file_changes in plain_file_changes.items()
+                if file_changes.num_lines_in_new_version == 0
+            ]
+        )
+        if empty_playlists:
+            logger.info("Empty playlists")
+            for playlist_id in empty_playlists:
                 logger.info(f"  {playlist_id}")
+        else:
+            logger.info("No empty playlists")
 
         logger.info("Summary")
         num_attempted = len(playlists_to_fetch)
