@@ -2,9 +2,10 @@
 
 import collections
 import datetime
+import difflib
 import logging
 import pathlib
-from typing import Dict, Optional, Set, TypeVar
+from typing import Dict, NamedTuple, Optional, Set, TypeVar
 
 import brotli
 
@@ -20,6 +21,20 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T", str, bytes)
+
+
+class FileChanges(NamedTuple):
+    num_lines_in_old_version: int
+    num_lines_in_new_version: int
+    num_lines_kept: int
+    num_lines_added: int
+    num_lines_removed: int
+    # num_lines_in_new_version / num_lines_in_old_version
+    growth_fraction: float
+    # num_lines_kept / num_lines_in_old_version
+    fraction_of_lines_kept: float
+    # num_lines_removed / num_lines_in_old_version
+    fraction_of_lines_removed: float
 
 
 class FileUpdater:
@@ -179,6 +194,9 @@ class FileUpdater:
         else:
             playlists_to_update = playlists
 
+        # Keep track of changes to plain files
+        plain_file_changes: Dict[PlaylistID, FileChanges] = {}
+
         # Process the playlists
         logger.info(f"Updating {len(playlists_to_update)} playlist(s)...")
         for playlist_id, playlist in sorted(playlists_to_update.items()):
@@ -187,10 +205,13 @@ class FileUpdater:
             logger.info(f"Playlist name: {playlist.unique_name}")
 
             # Update plain playlist
-            cls._maybe_update_file(
+            file_changes = cls._maybe_update_file(
                 path=file_manager.get_plain_path(playlist_id),
                 content=Formatter.plain(playlist_id, playlist),
+                compute_file_changes=True,
             )
+            assert file_changes  # for pyre
+            plain_file_changes[playlist_id] = file_changes
 
             # Update pretty JSON
             cls._maybe_update_file(
@@ -238,6 +259,16 @@ class FileUpdater:
                 ),
             )
 
+            # Print out plain file changes
+            logger.info(f"  {file_changes.num_lines_in_old_version  = :>5}")
+            logger.info(f"  {file_changes.num_lines_in_new_version  = :>5}")
+            logger.info(f"  {file_changes.num_lines_kept            = :>5}")
+            logger.info(f"  {file_changes.num_lines_added           = :>5}")
+            logger.info(f"  {file_changes.num_lines_removed         = :>5}")
+            logger.info(f"  {file_changes.growth_fraction           = :.3f}")
+            logger.info(f"  {file_changes.fraction_of_lines_kept    = :.3f}")
+            logger.info(f"  {file_changes.fraction_of_lines_removed = :.3f}")
+
         # Check for unexpected files in playlist directories
         file_manager.ensure_no_unexpected_files()
 
@@ -265,6 +296,21 @@ class FileUpdater:
             path=file_manager.get_metadata_compact_json_br_path(),
             content=brotli.compress(metadata_compact_json.encode()),
         )
+
+        logger.info("Growth fractions")
+        for playlist_id, file_changes in sorted(
+            plain_file_changes.items(),
+            key=lambda pair: (-1 * pair[1].growth_fraction, pair[0]),
+        ):
+            logger.info(f"  {playlist_id}: {file_changes.growth_fraction:.3f}")
+
+        logger.info("Empty playlists")
+        for playlist_id, file_changes in sorted(
+            plain_file_changes.items(),
+            key=lambda pair: pair[0],
+        ):
+            if file_changes.num_lines_in_new_version == 0:
+                logger.info(f"  {playlist_id}")
 
         logger.info("Summary")
         num_attempted = len(playlists_to_fetch)
@@ -302,9 +348,9 @@ class FileUpdater:
         cls, prev_content: T, content: T, path: pathlib.Path
     ) -> None:
         if content == prev_content:
-            logger.info(f"  No changes to file: {path}")
+            logger.debug(f"  No changes to file: {path}")
             return
-        logger.info(f"  Writing updates to file: {path}")
+        logger.debug(f"  Writing updates to file: {path}")
         if isinstance(content, bytes):
             with open(path, "wb") as f:
                 f.write(content)
@@ -315,7 +361,9 @@ class FileUpdater:
             raise RuntimeError(f"Invalid content type: {type(content)}")
 
     @classmethod
-    def _maybe_update_file(cls, path: pathlib.Path, content: T) -> None:
+    def _maybe_update_file(
+        cls, path: pathlib.Path, content: T, *, compute_file_changes: bool = False
+    ) -> Optional[FileChanges]:
         if isinstance(content, bytes):
             prev_content = cls._get_file_content_or_empty_bytes(path)
         elif isinstance(content, str):
@@ -326,4 +374,44 @@ class FileUpdater:
             prev_content=prev_content,
             content=content,
             path=path,
+        )
+        if compute_file_changes:
+            return cls._get_file_changes(prev_content, content)
+
+    @classmethod
+    def _get_file_changes(cls, old_content: str, new_content: str) -> FileChanges:
+        old_lines = old_content.splitlines()
+        new_lines = new_content.splitlines()
+
+        differ = difflib.Differ()
+        diff = differ.compare(old_lines, new_lines)
+
+        num_lines_added = 0
+        num_lines_removed = 0
+        num_lines_in_both = 0
+        for line in diff:
+            if line[0] == "+":
+                num_lines_added += 1
+            elif line[0] == "-":
+                num_lines_removed += 1
+            elif line[0] == " ":
+                num_lines_in_both += 1
+
+        if old_lines:
+            growth_fraction = len(new_lines) / len(old_lines)
+            fraction_of_lines_kept = num_lines_in_both / len(old_lines)
+            fraction_of_lines_removed = num_lines_removed / len(old_lines)
+        else:
+            growth_fraction = 1
+            fraction_of_lines_kept = 1
+            fraction_of_lines_removed = 0
+        return FileChanges(
+            num_lines_in_old_version=len(old_lines),
+            num_lines_in_new_version=len(new_lines),
+            num_lines_kept=num_lines_in_both,
+            num_lines_added=num_lines_added,
+            num_lines_removed=num_lines_removed,
+            growth_fraction=growth_fraction,
+            fraction_of_lines_kept=fraction_of_lines_kept,
+            fraction_of_lines_removed=fraction_of_lines_removed,
         )
