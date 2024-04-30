@@ -13,6 +13,7 @@ from file_formatter import Formatter
 from file_manager import FileManager
 from git_utils import GitUtils
 from plants.environment import Environment
+from plants.logging import Color
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
 from spotify import ResourceNotFoundError, Spotify
@@ -201,8 +202,8 @@ class FileUpdater:
         logger.info(f"Updating {len(playlists_to_update)} playlist(s)...")
         for playlist_id, playlist in sorted(playlists_to_update.items()):
             assert isinstance(playlist, Playlist)
-            logger.info(f"Playlist ID: {playlist_id}")
-            logger.info(f"Playlist name: {playlist.unique_name}")
+            logger.info(f"{Color.LIGHT_YELLOW(playlist_id)}")
+            logger.info(f"  Unique name: {Color.LIGHT_PURPLE(playlist.unique_name)}")
 
             # Update plain playlist
             file_changes = cls._maybe_update_file(
@@ -260,20 +261,51 @@ class FileUpdater:
             )
 
             # Print out plain file changes
+            old_num_lines = f"{file_changes.num_lines_in_old_version}"
+            new_num_lines = f"{file_changes.num_lines_in_new_version}"
+            growth_fraction = f"{file_changes.growth_fraction:.3f}"
             logger.info(
-                f"{file_changes.num_lines_in_new_version} / "
-                f"{file_changes.num_lines_in_old_version} = "
-                f"{file_changes.growth_fraction:.3}  "
-                f"(~{file_changes.num_lines_kept}, "
-                f"+{file_changes.num_lines_added}, "
-                f"-{file_changes.num_lines_removed})"
+                f"  Changes: {Color.LIGHT_GRAY(new_num_lines)} / "
+                f"{Color.LIGHT_GRAY(old_num_lines)} = "
+                f"{Color.TURQUOISE(growth_fraction)} "
+                f"(~{Color.LIGHT_BLUE(str(file_changes.num_lines_kept))}, "
+                f"+{Color.LIGHT_GREEN(str(file_changes.num_lines_added))}, "
+                f"-{Color.LIGHT_RED(str(file_changes.num_lines_removed))})"
             )
 
         # Check for unexpected files in playlist directories
         file_manager.ensure_no_unexpected_files()
 
+        # Print out playlists with changes in size
+        logger.info("Playlists that changed size")
+        flag = False
+        for playlist_id, file_changes in sorted(
+            plain_file_changes.items(),
+            key=lambda pair: (-1 * pair[1].growth_fraction, pair[0]),
+        ):
+            if file_changes.growth_fraction != 1:
+                logger.info(f"  {playlist_id}: {file_changes.growth_fraction:.3f}")
+                flag = True
+        if not flag:
+            logger.info("  None")
+
+        # Print out empty playlists, hopefully none
+        empty_playlists = sorted(
+            [
+                playlist_id
+                for playlist_id, file_changes in plain_file_changes.items()
+                if file_changes.num_lines_in_new_version == 0
+            ]
+        )
+        logger.info("Empty playlists")
+        if empty_playlists:
+            for playlist_id in empty_playlists:
+                logger.info(f"  {playlist_id}")
+        else:
+            logger.info("  None")
+
         # Update all metadata files
-        logger.info("Metadata")
+        logger.info("Updating metadata")
         metadata_full_json = Formatter.metadata_full_json(playlists)
         metadata_compact_json = Formatter.metadata_compact_json(playlists)
         cls._maybe_update_file(
@@ -296,28 +328,6 @@ class FileUpdater:
             path=file_manager.get_metadata_compact_json_br_path(),
             content=brotli.compress(metadata_compact_json.encode()),
         )
-
-        logger.info("Nontrivial growth fractions")
-        for playlist_id, file_changes in sorted(
-            plain_file_changes.items(),
-            key=lambda pair: (-1 * pair[1].growth_fraction, pair[0]),
-        ):
-            if file_changes.growth_fraction != 1:
-                logger.info(f"  {playlist_id}: {file_changes.growth_fraction:.3f}")
-
-        empty_playlists = sorted(
-            [
-                playlist_id
-                for playlist_id, file_changes in plain_file_changes.items()
-                if file_changes.num_lines_in_new_version == 0
-            ]
-        )
-        if empty_playlists:
-            logger.info("Empty playlists")
-            for playlist_id in empty_playlists:
-                logger.info(f"  {playlist_id}")
-        else:
-            logger.info("No empty playlists")
 
         logger.info("Summary")
         num_attempted = len(playlists_to_fetch)
