@@ -48,14 +48,9 @@ class FileUpdater:
         auto_register: bool,
         spotify_cache: Optional[Cache[str, Dict[str, Any]]] = None,
     ) -> None:
-        # Check nonempty to fail fast
-        client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
-        client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
-        assert client_id and client_secret
-
         async with Spotify(
-            client_id=client_id,
-            client_secret=client_secret,
+            client_id=Environment.get_env("SPOTIFY_CLIENT_ID") or "",
+            client_secret=Environment.get_env("SPOTIFY_CLIENT_SECRET") or "",
             cache=spotify_cache,
         ) as spotify:
             await cls._update_files_impl(

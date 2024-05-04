@@ -66,7 +66,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             ]
         )
         self.mock_spotify_class.assert_called_once_with(
-            client_id="client_id", client_secret="client_secret"
+            client_id="client_id", client_secret="client_secret", cache=None
         )
         self.mock_update_files_impl.assert_called_once_with(
             now=sentinel.now,

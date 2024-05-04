@@ -39,6 +39,10 @@ T = TypeVar("T")
 #
 
 
+class MissingCredentialError(Exception):
+    pass
+
+
 class InvalidDataError(Exception):
     pass
 
@@ -529,6 +533,10 @@ class Spotify:
 
     @classmethod
     async def get_access_token(cls, client_id: str, client_secret: str) -> str:
+        if not client_id:
+            raise MissingCredentialError("client_id is empty")
+        if not client_secret:
+            raise MissingCredentialError("client_secret is empty")
         joined = f"{client_id}:{client_secret}"
         encoded = base64.b64encode(joined.encode()).decode()
         async with cls._get_session() as session:
