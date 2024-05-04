@@ -5,13 +5,14 @@ import datetime
 import difflib
 import logging
 import pathlib
-from typing import Dict, NamedTuple, Optional, Set, TypeVar
+from typing import Any, Dict, NamedTuple, Optional, Set, TypeVar
 
 import brotli
 
 from file_formatter import Formatter
 from file_manager import FileManager
 from git_utils import GitUtils
+from plants.cache import Cache
 from plants.environment import Environment
 from plants.logging import Color
 from playlist_id import PlaylistID
@@ -45,6 +46,7 @@ class FileUpdater:
         now: datetime.datetime,
         file_manager: FileManager,
         auto_register: bool,
+        spotify_cache: Optional[Cache[str, Dict[str, Any]]] = None,
     ) -> None:
         # Check nonempty to fail fast
         client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
@@ -54,6 +56,7 @@ class FileUpdater:
         async with Spotify(
             client_id=client_id,
             client_secret=client_secret,
+            cache=spotify_cache,
         ) as spotify:
             await cls._update_files_impl(
                 now=now,

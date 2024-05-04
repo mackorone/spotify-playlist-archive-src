@@ -23,6 +23,7 @@ from typing import (
 import aiohttp
 
 from alias import Alias
+from plants.cache import Cache, NoCache
 from plants.external import external
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
@@ -109,9 +110,11 @@ class Spotify:
         self,
         client_id: str,
         client_secret: str,
+        cache: Optional[Cache[str, Dict[str, Any]]] = None,
     ) -> None:
         self._client_id: str = client_id
         self._client_secret: str = client_secret
+        self._cache: Cache[str, Dict[str, Any]] = cache or NoCache()
         self._access_token: Optional[str] = None
         self._retry_budget_seconds: float = 300
         self._session: aiohttp.ClientSession = self._get_session()
@@ -130,11 +133,14 @@ class Spotify:
     async def _get_with_retry(
         self, url: str, *, max_spend_seconds: Optional[float] = None
     ) -> Dict[str, Any]:
-        return await self._make_retryable_request(
-            method=HttpMethod.GET,
-            url=url,
-            max_spend_seconds=max_spend_seconds,
-        )
+        async def _get(url: str) -> Dict[str, Any]:
+            return await self._make_retryable_request(
+                method=HttpMethod.GET,
+                url=url,
+                max_spend_seconds=max_spend_seconds,
+            )
+
+        return await self._cache.get(key=url, func=_get)
 
     async def _make_retryable_request(
         self,
