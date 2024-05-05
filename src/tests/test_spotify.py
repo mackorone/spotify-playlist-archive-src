@@ -15,6 +15,7 @@ from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import (
+    AccessTokenError,
     InvalidDataError,
     RequestFailedError,
     ResourceNotFoundError,
@@ -780,11 +781,7 @@ class TestGetTracks(SpotifyTestCase):
                 async with self.mock_session.get.return_value as mock_response:
                     mock_response.status = 200
                     mock_response.json.return_value = data
-                if key == "items":
-                    exception_class = ResourceNotFoundError
-                else:
-                    exception_class = InvalidDataError
-                with self.assertRaises(exception_class):
+                with self.assertRaises(InvalidDataError):
                     await self.spotify._get_tracks(PlaylistID("abc123"))
 
     async def test_empty_playlist(self) -> None:
@@ -950,7 +947,7 @@ class TestGetAccessToken(SpotifyTestCase):
     async def test_invalid_json(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
             mock_response.json.side_effect = Exception
-        with self.assertRaises(InvalidDataError):
+        with self.assertRaises(AccessTokenError):
             await self.spotify.get_access_token("client_id", "client_secret")
 
     async def test_error(self) -> None:
@@ -960,7 +957,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "token",
                 "token_type": "Bearer",
             }
-        with self.assertRaises(InvalidDataError):
+        with self.assertRaises(AccessTokenError):
             await self.spotify.get_access_token("client_id", "client_secret")
 
     async def test_invalid_access_token(self) -> None:
@@ -969,7 +966,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "",
                 "token_type": "Bearer",
             }
-        with self.assertRaises(InvalidDataError):
+        with self.assertRaises(AccessTokenError):
             await self.spotify.get_access_token("client_id", "client_secret")
 
     async def test_invalid_token_type(self) -> None:
@@ -978,7 +975,7 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "token",
                 "token_type": "invalid",
             }
-        with self.assertRaises(InvalidDataError):
+        with self.assertRaises(AccessTokenError):
             await self.spotify.get_access_token("client_id", "client_secret")
 
     async def test_success(self) -> None:

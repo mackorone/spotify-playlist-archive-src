@@ -43,6 +43,10 @@ class MissingCredentialError(Exception):
     pass
 
 
+class AccessTokenError(Exception):
+    pass
+
+
 class InvalidDataError(Exception):
     pass
 
@@ -409,14 +413,7 @@ class Spotify:
 
         while href:
             data = await self._get_with_retry(href)
-            # If tracks cannot be fetched, this playlist is broken and should
-            # be treated the same as if all data was unfetchable
-            try:
-                items = self._extract(data, "items", list, IfNull.RAISE)
-            except InvalidDataError:
-                raise ResourceNotFoundError(
-                    f"Failed to get tracks for playlist {playlist_id}"
-                )
+            items = self._extract(data, "items", list, IfNull.RAISE)
             for item in items:
                 if not isinstance(item, dict):
                     raise InvalidDataError(f"Invalid item: {item}")
@@ -548,19 +545,19 @@ class Spotify:
                 try:
                     data = await response.json()
                 except Exception as e:
-                    raise InvalidDataError from e
+                    raise AccessTokenError from e
 
         error = data.get("error")
         if error:
-            raise InvalidDataError(f"Failed to get access token: {error}")
+            raise AccessTokenError(f"Failed to get access token: {error}")
 
         access_token = data.get("access_token")
         if not access_token:
-            raise InvalidDataError(f"Invalid access token: {access_token}")
+            raise AccessTokenError(f"Invalid access token: {access_token}")
 
         token_type = data.get("token_type")
         if token_type != "Bearer":
-            raise InvalidDataError(f"Invalid token type: {token_type}")
+            raise AccessTokenError(f"Invalid token type: {token_type}")
 
         return access_token
 
