@@ -226,9 +226,11 @@ class FileUpdater:
             # Update cumulative JSON
             today = now.date()
             cumulative_json_path = file_manager.get_cumulative_json_path(playlist_id)
-            prev_content = cls._get_file_content_or_empty_string(cumulative_json_path)
-            if prev_content:
-                prev_struct = CumulativePlaylist.from_json(prev_content)
+            prev_cumulative_json_content = cls._get_file_content_or_empty_string(
+                cumulative_json_path
+            )
+            if prev_cumulative_json_content:
+                prev_struct = CumulativePlaylist.from_json(prev_cumulative_json_content)
             else:
                 prev_struct = CumulativePlaylist(
                     url="",
@@ -250,10 +252,16 @@ class FileUpdater:
             )
 
             # Update followers JSON
+            followers_json_path = file_manager.get_followers_json_path(playlist_id)
+            prev_followers_json_content = cls._get_file_content_or_empty_string(
+                followers_json_path
+            )
             cls._maybe_update_file(
-                path=file_manager.get_followers_json_path(playlist_id),
+                path=followers_json_path,
                 content=Formatter.followers_json(
-                    prev_content, today, playlist.num_followers
+                    prev_content=prev_followers_json_content,
+                    today=today,
+                    num_followers=playlist.num_followers,
                 ),
             )
 
