@@ -20,3 +20,10 @@ repos:
     language: system
     types: [python]
     pass_filenames: false
+
+  - id: run-tests
+    name: run-tests
+    entry: bash -c 'cd $(git rev-parse --show-toplevel)/src/ && python -m unittest tests/*.py'
+    language: system
+    types: [python]
+    pass_filenames: false
