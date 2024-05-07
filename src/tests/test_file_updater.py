@@ -13,7 +13,7 @@ from file_manager import FileManager, MalformedAliasError, UnexpectedFilesError
 from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
-from playlist_types import Owner, Playlist
+from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import RequestFailedError, ResourceNotFoundError
 
 T = TypeVar("T")
@@ -427,5 +427,261 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
 
     async def test_success(self) -> None:
-        # TODO
-        pass
+        # Assert that the playlists directory starts out as empty
+        self.assertEqual(sorted(self.playlists_dir.rglob("*")), [])
+
+        # First run, with no playlists registered
+        await self._update_files_impl()
+
+        # Make sure the expected dirs and files exist
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_dir()]),
+            [
+                self.playlists_dir / "cumulative",
+                self.playlists_dir / "followers",
+                self.playlists_dir / "metadata",
+                self.playlists_dir / "plain",
+                self.playlists_dir / "pretty",
+                self.playlists_dir / "registry",
+            ],
+        )
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_file()]),
+            [
+                self.playlists_dir / "index.md",
+                self.playlists_dir / "metadata/metadata-compact.json",
+                self.playlists_dir / "metadata/metadata-compact.json.br",
+                self.playlists_dir / "metadata/metadata-full.json",
+                self.playlists_dir / "metadata/metadata-full.json.br",
+            ],
+        )
+
+        # Next, lets register a playlist
+        with open(self.playlists_dir / "registry" / "abc", "w") as f:
+            pass
+
+        # Create a fake playlist
+        playlist = Playlist(
+            url="playlist_url",
+            original_name="playlist_original_name",
+            unique_name="playlist_unique_name",
+            description="playlist_description",
+            tracks=[
+                Track(
+                    url="trackurl",
+                    name="track_name",
+                    album=Album(
+                        url="album_url",
+                        name="album_name",
+                    ),
+                    artists=[
+                        Artist(
+                            url="artist_one_url",
+                            name="artist_one_name",
+                        ),
+                        Artist(
+                            url="artist_two_url",
+                            name="artist_two_name",
+                        ),
+                    ],
+                    duration_ms=12345,
+                    added_at=self.now,
+                )
+            ],
+            snapshot_id="playlist_snapshot_id",
+            num_followers=999,
+            owner=Owner(
+                url="owner_url",
+                name="owner_name",
+            ),
+        )
+        self.mock_spotify.get_playlist.side_effect = [playlist]
+
+        # Now let's run it again
+        await self._update_files_impl()
+
+        # Make sure the expected dirs and files exist
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_dir()]),
+            [
+                self.playlists_dir / "cumulative",
+                self.playlists_dir / "followers",
+                self.playlists_dir / "metadata",
+                self.playlists_dir / "plain",
+                self.playlists_dir / "pretty",
+                self.playlists_dir / "registry",
+            ],
+        )
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_file()]),
+            [
+                self.playlists_dir / "cumulative/abc.json",
+                self.playlists_dir / "cumulative/abc.md",
+                self.playlists_dir / "followers/abc.json",
+                # Note: can skip validating the contents of index.md and the
+                # files in metadata because they're covered by previous tests
+                self.playlists_dir / "index.md",
+                self.playlists_dir / "metadata/metadata-compact.json",
+                self.playlists_dir / "metadata/metadata-compact.json.br",
+                self.playlists_dir / "metadata/metadata-full.json",
+                self.playlists_dir / "metadata/metadata-full.json.br",
+                self.playlists_dir / "plain/abc",
+                self.playlists_dir / "pretty/abc.json",
+                self.playlists_dir / "pretty/abc.md",
+                self.playlists_dir / "registry/abc",
+            ],
+        )
+
+        # Now check the contents of each file
+        with open(self.playlists_dir / "cumulative/abc.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "date_first_scraped": "2021-12-15",
+                      "description": "playlist_description",
+                      "name": "playlist_unique_name",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name",
+                            "url": "album_url"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_one_name",
+                              "url": "artist_one_url"
+                            },
+                            {
+                              "name": "artist_two_name",
+                              "url": "artist_two_url"
+                            }
+                          ],
+                          "date_added": "2021-12-15",
+                          "date_added_asterisk": false,
+                          "date_removed": null,
+                          "duration_ms": 12345,
+                          "name": "track_name",
+                          "url": "trackurl"
+                        }
+                      ],
+                      "url": "playlist_url"
+                    }
+                    """
+                ),
+            )
+
+        with open(self.playlists_dir / "cumulative/abc.md") as f:
+            self.assertEqual(
+                f.read(),
+                # Weird formatting here because my editor doesn't like trailing
+                # whitespace, but textwrap dedent requires leading whitespace
+                # on every line, even the empty ones
+                r"""[pretty](/playlists/pretty/abc.md) - cumulative - [plain](/playlists/plain/abc) - [githistory](base/plain/abc)
+
+### [playlist\_unique\_name](playlist_url)
+
+> playlist\_description
+
+1 song - 12 sec
+
+| Title | Artist(s) | Album | Length | Added | Removed |
+|---|---|---|---|---|---|
+| [track\_name](trackurl) | [artist\_one\_name](artist_one_url), [artist\_two\_name](artist_two_url) | [album\_name](album_url) | 0:12 | 2021-12-15 |  |
+
+\*This playlist was first scraped on 2021-12-15. Prior content cannot be recovered.
+""",
+            )
+
+        with open(self.playlists_dir / "followers/abc.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "2021-12-15": 999
+                    }"""
+                ),
+            )
+
+        with open(self.playlists_dir / "plain/abc") as f:
+            self.assertEqual(
+                f.read(),
+                # Weird formatting here because my editor doesn't like trailing
+                # whitespace, but textwrap dedent requires leading whitespace
+                # on every line, even the empty ones
+                r"""playlist_unique_name
+playlist_description
+
+track_name -- artist_one_name, artist_two_name -- album_name
+""",
+            )
+
+        with open(self.playlists_dir / "pretty/abc.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "description": "playlist_description",
+                      "num_followers": 999,
+                      "original_name": "playlist_original_name",
+                      "owner": {
+                        "name": "owner_name",
+                        "url": "owner_url"
+                      },
+                      "snapshot_id": "playlist_snapshot_id",
+                      "tracks": [
+                        {
+                          "added_at": "2021-12-15 00:00:00",
+                          "album": {
+                            "name": "album_name",
+                            "url": "album_url"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_one_name",
+                              "url": "artist_one_url"
+                            },
+                            {
+                              "name": "artist_two_name",
+                              "url": "artist_two_url"
+                            }
+                          ],
+                          "duration_ms": 12345,
+                          "name": "track_name",
+                          "url": "trackurl"
+                        }
+                      ],
+                      "unique_name": "playlist_unique_name",
+                      "url": "playlist_url"
+                    }
+                    """
+                ),
+            )
+
+        with open(self.playlists_dir / "pretty/abc.md") as f:
+            self.assertEqual(
+                f.read(),
+                # Weird formatting here because my editor doesn't like trailing
+                # whitespace, but textwrap dedent requires leading whitespace
+                # on every line, even the empty ones
+                r"""pretty - [cumulative](/playlists/cumulative/abc.md) - [plain](/playlists/plain/abc) - [githistory](base/plain/abc)
+
+### [playlist\_unique\_name](playlist_url)
+
+> playlist\_description
+
+[owner\_name](owner_url) - 999 likes - 1 song - 12 sec
+
+| No. | Title | Artist(s) | Album | Length |
+|---|---|---|---|---|
+| 1 | [track\_name](trackurl) | [artist\_one\_name](artist_one_url), [artist\_two\_name](artist_two_url) | [album\_name](album_url) | 0:12 |
+
+Snapshot ID: `playlist_snapshot_id`
+""",
+            )
+
+        with open(self.playlists_dir / "registry/abc") as f:
+            self.assertEqual(f.read(), "")
