@@ -14,7 +14,9 @@
     - Automatically add alias for empty playlist names (best effort)
     - Debug perf issues: https://github.com/github/git-sizer
         - Add intermediate directories to playlist dirs
-        - (Maybe) delete old cumulative playlist blobs
+        - The `.git` directory is too big. Perhaps I can delete blobs for old
+          cumulative data, since the history is part of the file itself? Must
+          retain commit history for plain/ and pretty/ directories, though.
     - https://next.github.com/projects/flat-data
     - Automatically generate aliases for personalized playlists
 
