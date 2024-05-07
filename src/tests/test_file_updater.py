@@ -601,7 +601,8 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                     """\
                     {
                       "2021-12-15": 999
-                    }"""
+                    }
+                    """
                 ),
             )
 

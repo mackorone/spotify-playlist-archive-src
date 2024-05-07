@@ -65,7 +65,7 @@ class Formatter:
             data = {}
         if num_followers is not None:
             data[str(today)] = num_followers
-        return json.dumps(data, indent=2, sort_keys=True)
+        return json.dumps(data, indent=2, sort_keys=True) + "\n"
 
     @classmethod
     def plain(cls, playlist_id: PlaylistID, playlist: Playlist) -> str:
