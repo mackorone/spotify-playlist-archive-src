@@ -17,11 +17,12 @@ from playlist_types import Album, Artist, Owner, Playlist, Track
 from spotify import (
     AccessTokenError,
     InvalidDataError,
+    OverallRetryBudgetExceededError,
     RequestFailedError,
+    RequestRetryBudgetExceededError,
     ResourceNotFoundError,
     ResponseType,
     RetryableError,
-    RetryBudgetExceededError,
     Spotify,
 )
 
@@ -161,7 +162,7 @@ class TestGetWithRetry(SpotifyTestCase):
             asyncio.exceptions.TimeoutError,
         ]:
             self.mock_session.get.return_value.__aenter__.side_effect = type_
-            with self.assertRaises(RetryBudgetExceededError):
+            with self.assertRaises(OverallRetryBudgetExceededError):
                 await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     # Patch the logger to suppress log spew
@@ -173,7 +174,7 @@ class TestGetWithRetry(SpotifyTestCase):
                 mock_response.json.return_value = data
             # Set a smaller retry budget to make the test run quicker
             self.spotify._retry_budget_seconds = 10
-            with self.assertRaises(RetryBudgetExceededError):
+            with self.assertRaises(OverallRetryBudgetExceededError):
                 await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
     async def test_playlist_not_found(self) -> None:
@@ -197,7 +198,7 @@ class TestGetWithRetry(SpotifyTestCase):
             mock_response.status = 500
         # Set a smaller retry budget to make the test run quicker
         self.spotify._retry_budget_seconds = 10
-        with self.assertRaises(RetryBudgetExceededError):
+        with self.assertRaises(OverallRetryBudgetExceededError):
             await self.spotify._get_with_retry("href")
 
     # Patch the logger to suppress log spew
@@ -209,7 +210,7 @@ class TestGetWithRetry(SpotifyTestCase):
             AsyncMock(status=500),
             AsyncMock(status=200),
         ]
-        with self.assertRaises(RetryBudgetExceededError):
+        with self.assertRaises(OverallRetryBudgetExceededError):
             await self.spotify._get_with_retry("href")
 
         # Case 2: on the line
@@ -218,7 +219,7 @@ class TestGetWithRetry(SpotifyTestCase):
             AsyncMock(status=500),
             AsyncMock(status=200),
         ]
-        with self.assertRaises(RetryBudgetExceededError):
+        with self.assertRaises(OverallRetryBudgetExceededError):
             await self.spotify._get_with_retry("href")
 
         # Case 3: does not exceed budget
@@ -239,7 +240,7 @@ class TestGetWithRetry(SpotifyTestCase):
             AsyncMock(status=500),
             AsyncMock(status=200),
         ]
-        with self.assertRaises(RetryBudgetExceededError):
+        with self.assertRaises(RequestRetryBudgetExceededError):
             # This method uses max_spend_seconds=3
             await self.spotify.get_category_playlist_ids()
 

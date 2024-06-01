@@ -58,7 +58,11 @@ class ResourceNotFoundError(Exception):
     pass
 
 
-class RetryBudgetExceededError(Exception):
+class OverallRetryBudgetExceededError(Exception):
+    pass
+
+
+class RequestRetryBudgetExceededError(Exception):
     pass
 
 
@@ -197,10 +201,14 @@ class Spotify:
                     self._access_token = None
                 self._retry_budget_seconds -= e.sleep_seconds
                 if self._retry_budget_seconds <= 0:
-                    raise RetryBudgetExceededError("Overall retry budget exceeded")
+                    raise OverallRetryBudgetExceededError(
+                        f"Overall retry budget exceeded when fetching URL: {url}"
+                    )
                 max_spend_seconds -= e.sleep_seconds
                 if max_spend_seconds <= 0:
-                    raise RetryBudgetExceededError("Request retry budget exceeded")
+                    raise RequestRetryBudgetExceededError(
+                        f"Request retry budget exceeded when fetching URL: {url}"
+                    )
                 logger.warning(f"{e.message}, will retry after {e.sleep_seconds}s")
                 await self._sleep(e.sleep_seconds)
 
