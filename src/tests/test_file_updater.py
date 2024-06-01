@@ -14,7 +14,12 @@ from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
 from playlist_types import Album, Artist, Owner, Playlist, Track
-from spotify import RequestFailedError, ResourceNotFoundError
+from spotify import (
+    RequestFailedError,
+    RequestRetryBudgetExceededError,
+    ResourceNotFoundError,
+    RetryBudget,
+)
 
 T = TypeVar("T")
 
@@ -149,7 +154,11 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
     @classmethod
     def _fake_get_playlist(
-        cls, playlist_id: PlaylistID, *, alias: Optional[Alias]
+        cls,
+        playlist_id: PlaylistID,
+        *,
+        alias: Optional[Alias],
+        retry_budget: Optional[RetryBudget] = None,
     ) -> Playlist:
         return cls._helper(
             playlist_id=playlist_id,
@@ -217,7 +226,11 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         with open(registry_dir / "foo", "w") as f:
             f.write("alias")
         await self._update_files_impl()
-        self.mock_spotify.get_playlist.assert_called_once_with("foo", alias="alias")
+        args, kwargs = self.mock_spotify.get_playlist.call_args
+        self.assertEqual(args, ("foo",))
+        self.assertEqual(len(kwargs), 2)
+        self.assertEqual(kwargs["alias"], "alias")
+        self.assertEqual(kwargs["retry_budget"].get_initial_seconds(), 5)
         with open(self.playlists_dir / "plain" / "foo", "r") as f:
             lines = f.read().splitlines()
         self.assertEqual(lines[0], "alias")
@@ -299,7 +312,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                 self._fake_get_playlist(PlaylistID("a"), alias=None),
                 self._fake_get_playlist(PlaylistID("b"), alias=None),
                 ResourceNotFoundError(),
-                ResourceNotFoundError(),
+                RequestRetryBudgetExceededError(),
             ]
         )
 

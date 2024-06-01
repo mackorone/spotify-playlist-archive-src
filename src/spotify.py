@@ -390,10 +390,14 @@ class Spotify:
         return ids
 
     async def get_playlist(
-        self, playlist_id: PlaylistID, *, alias: Optional[Alias]
+        self,
+        playlist_id: PlaylistID,
+        *,
+        alias: Optional[Alias],
+        retry_budget: Optional[RetryBudget] = None,
     ) -> Playlist:
         href = self._get_playlist_href(playlist_id)
-        data = await self._get_with_retry(href)
+        data = await self._get_with_retry(href, request_retry_budget=retry_budget)
 
         playlist_urls = self._extract(data, "external_urls", dict, IfNull.RAISE)
         playlist_url = self._extract(playlist_urls, "spotify", str, IfNull.COALESCE)
@@ -429,7 +433,7 @@ class Spotify:
             # and playlists read from JSON.
             unique_name=name,
             description=self._extract(data, "description", str, IfNull.RAISE),
-            tracks=await self._get_tracks(playlist_id),
+            tracks=await self._get_tracks(playlist_id, retry_budget=retry_budget),
             snapshot_id=self._extract(data, "snapshot_id", str, IfNull.RAISE),
             num_followers=followers_total,
             owner=Owner(
@@ -438,12 +442,14 @@ class Spotify:
             ),
         )
 
-    async def _get_tracks(self, playlist_id: PlaylistID) -> List[Track]:
+    async def _get_tracks(
+        self, playlist_id: PlaylistID, *, retry_budget: Optional[RetryBudget] = None
+    ) -> List[Track]:
         tracks = []
         href = self._get_tracks_href(playlist_id)
 
         while href:
-            data = await self._get_with_retry(href)
+            data = await self._get_with_retry(href, request_retry_budget=retry_budget)
             items = self._extract(data, "items", list, IfNull.RAISE)
             for item in items:
                 if not isinstance(item, dict):

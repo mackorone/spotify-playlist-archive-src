@@ -17,7 +17,13 @@ from plants.environment import Environment
 from plants.logging import Color
 from playlist_id import PlaylistID
 from playlist_types import CumulativePlaylist, Playlist
-from spotify import InvalidDataError, ResourceNotFoundError, Spotify
+from spotify import (
+    InvalidDataError,
+    RequestRetryBudgetExceededError,
+    ResourceNotFoundError,
+    RetryBudget,
+    Spotify,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -121,10 +127,16 @@ class FileUpdater:
             )
             try:
                 playlists[playlist_id] = await spotify.get_playlist(
-                    playlist_id, alias=registered_playlists[playlist_id]
+                    playlist_id,
+                    alias=registered_playlists[playlist_id],
+                    retry_budget=RetryBudget(seconds=5),
                 )
             # Skip deleted playlists and playlists with invalid data
-            except (InvalidDataError, ResourceNotFoundError) as e:
+            except (
+                InvalidDataError,
+                ResourceNotFoundError,
+                RequestRetryBudgetExceededError,
+            ) as e:
                 num_unfetchable += 1
                 logger.warning(f"Failed to fetch playlist {playlist_id}: {e}")
         logger.info("Done fetching playlists")
