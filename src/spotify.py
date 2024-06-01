@@ -58,6 +58,10 @@ class ResourceNotFoundError(Exception):
     pass
 
 
+class RetryBudgetExceededError(Exception):
+    pass
+
+
 class OverallRetryBudgetExceededError(Exception):
     pass
 
@@ -114,6 +118,20 @@ class IfNull(enum.Enum):
     COALESCE = enum.auto()
 
 
+class RetryBudget:
+    def __init__(self, *, seconds: float) -> None:
+        self._initial_seconds = seconds
+        self._remaining_seconds = seconds
+
+    def get_initial_seconds(self) -> float:
+        return self._initial_seconds
+
+    def subtract(self, seconds: float) -> None:
+        self._remaining_seconds -= seconds
+        if self._remaining_seconds <= 0:
+            raise RetryBudgetExceededError()
+
+
 class Spotify:
     BASE_URL = "https://api.spotify.com/v1/"
 
@@ -127,7 +145,7 @@ class Spotify:
         self._client_secret: str = client_secret
         self._cache: Cache[str, Dict[str, Any]] = cache or NoCache()
         self._access_token: Optional[str] = None
-        self._retry_budget_seconds: float = 300
+        self._overall_retry_budget: RetryBudget = RetryBudget(seconds=300)
         self._session: aiohttp.ClientSession = self._get_session()
 
     async def __aenter__(self) -> Spotify:
@@ -142,13 +160,13 @@ class Spotify:
         await self.shutdown()
 
     async def _get_with_retry(
-        self, url: str, *, max_spend_seconds: Optional[float] = None
+        self, url: str, *, request_retry_budget: Optional[RetryBudget] = None
     ) -> Dict[str, Any]:
         async def _get(url: str) -> Dict[str, Any]:
             return await self._make_retryable_request(
                 method=HttpMethod.GET,
                 url=url,
-                max_spend_seconds=max_spend_seconds,
+                request_retry_budget=request_retry_budget,
             )
 
         return await self._cache.get(key=url, func=_get)
@@ -159,12 +177,9 @@ class Spotify:
         url: str,
         *,
         expected_response_type: ResponseType = ResponseType.JSON,
-        max_spend_seconds: Optional[float] = None,
+        request_retry_budget: Optional[RetryBudget] = None,
         raise_if_request_fails: bool = True,
     ) -> Dict[str, Any]:
-        if max_spend_seconds is None:
-            max_spend_seconds = self._retry_budget_seconds
-
         while True:
             # Lazily fetch access token
             if not self._access_token:
@@ -199,16 +214,23 @@ class Spotify:
             except RetryableError as e:
                 if e.refresh_access_token:
                     self._access_token = None
-                self._retry_budget_seconds -= e.sleep_seconds
-                if self._retry_budget_seconds <= 0:
+                try:
+                    self._overall_retry_budget.subtract(e.sleep_seconds)
+                except RetryBudgetExceededError:
+                    seconds = round(self._overall_retry_budget.get_initial_seconds(), 1)
                     raise OverallRetryBudgetExceededError(
-                        f"Overall retry budget exceeded when fetching URL: {url}"
+                        f"Overall retry budget of {seconds}s exceeded when fetching "
+                        f"URL: {url}"
                     )
-                max_spend_seconds -= e.sleep_seconds
-                if max_spend_seconds <= 0:
-                    raise RequestRetryBudgetExceededError(
-                        f"Request retry budget exceeded when fetching URL: {url}"
-                    )
+                if request_retry_budget:
+                    try:
+                        request_retry_budget.subtract(e.sleep_seconds)
+                    except RetryBudgetExceededError:
+                        seconds = round(request_retry_budget.get_initial_seconds(), 1)
+                        raise RequestRetryBudgetExceededError(
+                            f"Request retry budget of {seconds}s exceeded when "
+                            f"fetching URL: {url}"
+                        )
                 logger.warning(f"{e.message}, will retry after {e.sleep_seconds}s")
                 await self._sleep(e.sleep_seconds)
 
@@ -327,7 +349,9 @@ class Spotify:
         category_ids: Set[str] = set()
         href = self.BASE_URL + "browse/categories?limit=50"
         while href:
-            data = await self._get_with_retry(href, max_spend_seconds=3)
+            data = await self._get_with_retry(
+                href, request_retry_budget=RetryBudget(seconds=3)
+            )
             categories = self._extract(data, "categories", dict, IfNull.COALESCE)
             if not categories:
                 href = None
@@ -338,7 +362,9 @@ class Spotify:
             href = self.BASE_URL + f"browse/categories/{category}/playlists?limit=50"
             while href:
                 try:
-                    data = await self._get_with_retry(href, max_spend_seconds=3)
+                    data = await self._get_with_retry(
+                        href, request_retry_budget=RetryBudget(seconds=3)
+                    )
                 except ResourceNotFoundError:
                     # Weirdly, some categories return 404
                     break

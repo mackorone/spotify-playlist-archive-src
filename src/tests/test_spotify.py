@@ -23,6 +23,7 @@ from spotify import (
     ResourceNotFoundError,
     ResponseType,
     RetryableError,
+    RetryBudget,
     Spotify,
 )
 
@@ -173,7 +174,7 @@ class TestGetWithRetry(SpotifyTestCase):
                 mock_response.status = 200
                 mock_response.json.return_value = data
             # Set a smaller retry budget to make the test run quicker
-            self.spotify._retry_budget_seconds = 10
+            self.spotify._overall_retry_budget = RetryBudget(seconds=10)
             with self.assertRaises(OverallRetryBudgetExceededError):
                 await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
 
@@ -197,7 +198,7 @@ class TestGetWithRetry(SpotifyTestCase):
         async with self.mock_session.get() as mock_response:
             mock_response.status = 500
         # Set a smaller retry budget to make the test run quicker
-        self.spotify._retry_budget_seconds = 10
+        self.spotify._overall_retry_budget = RetryBudget(seconds=10)
         with self.assertRaises(OverallRetryBudgetExceededError):
             await self.spotify._get_with_retry("href")
 
@@ -205,7 +206,7 @@ class TestGetWithRetry(SpotifyTestCase):
     @patch("spotify.logger")
     async def test_overall_retry_budget(self, mock_logger: Mock) -> None:
         # Case 1: does exceed budget
-        self.spotify._retry_budget_seconds = 0.9
+        self.spotify._overall_retry_budget = RetryBudget(seconds=0.9)
         self.mock_session.get.return_value.__aenter__.side_effect = [
             AsyncMock(status=500),
             AsyncMock(status=200),
@@ -214,7 +215,7 @@ class TestGetWithRetry(SpotifyTestCase):
             await self.spotify._get_with_retry("href")
 
         # Case 2: on the line
-        self.spotify._retry_budget_seconds = 1.0
+        self.spotify._overall_retry_budget = RetryBudget(seconds=1.0)
         self.mock_session.get.return_value.__aenter__.side_effect = [
             AsyncMock(status=500),
             AsyncMock(status=200),
@@ -223,7 +224,7 @@ class TestGetWithRetry(SpotifyTestCase):
             await self.spotify._get_with_retry("href")
 
         # Case 3: does not exceed budget
-        self.spotify._retry_budget_seconds = 1.1
+        self.spotify._overall_retry_budget = RetryBudget(seconds=1.1)
         self.mock_session.get.return_value.__aenter__.side_effect = [
             AsyncMock(status=500),
             AsyncMock(status=200, json=AsyncMock(return_value={"k": "v"})),
