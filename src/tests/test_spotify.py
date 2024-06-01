@@ -312,12 +312,10 @@ class TestGetWithRetry(SpotifyTestCase):
             [
                 call(
                     url="href",
-                    json=None,
                     headers={"Authorization": "Bearer access_token_one"},
                 ),
                 call(
                     url="href",
-                    json=None,
                     headers={"Authorization": "Bearer access_token_two"},
                 ),
             ]
@@ -380,10 +378,9 @@ class TestGetSpotifyUserPlaylistIDs(SpotifyTestCase):
             [
                 call(
                     url="https://api.spotify.com/v1/users/spotify/playlists?limit=50",
-                    json=None,
                     headers=ANY,
                 ),
-                call(url="next_url", json=None, headers=ANY),
+                call(url="next_url", headers=ANY),
             ]
         )
 
@@ -437,10 +434,9 @@ class TestGetFeaturedPlaylistIDs(SpotifyTestCase):
             [
                 call(
                     url="https://api.spotify.com/v1/browse/featured-playlists?limit=50",
-                    json=None,
                     headers=ANY,
                 ),
-                call(url="next_url", json=None, headers=ANY),
+                call(url="next_url", headers=ANY),
             ]
         )
 
@@ -546,25 +542,22 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
             [
                 call(
                     url="https://api.spotify.com/v1/browse/categories?limit=50",
-                    json=None,
                     headers=ANY,
                 ),
-                call(url="next_category_url", json=None, headers=ANY),
+                call(url="next_category_url", headers=ANY),
                 call(
                     url=(
                         "https://api.spotify.com/v1/browse/categories/category_1"
                         "/playlists?limit=50"
                     ),
-                    json=None,
                     headers=ANY,
                 ),
-                call(url="next_playlists_url", json=None, headers=ANY),
+                call(url="next_playlists_url", headers=ANY),
                 call(
                     url=(
                         "https://api.spotify.com/v1/browse/categories/category_2"
                         "/playlists?limit=50"
                     ),
-                    json=None,
                     headers=ANY,
                 ),
                 call(
@@ -572,7 +565,6 @@ class TestGetCategoryPlaylistIDs(SpotifyTestCase):
                         "https://api.spotify.com/v1/browse/categories/category_3"
                         "/playlists?limit=50"
                     ),
-                    json=None,
                     headers=ANY,
                 ),
             ]
@@ -936,9 +928,9 @@ class TestGetTracks(SpotifyTestCase):
         self.assertEqual(tracks, [])
         self.mock_session.get.assert_has_calls(
             [
-                call(url="a", json=None, headers=ANY),
-                call(url="b", json=None, headers=ANY),
-                call(url="c", json=None, headers=ANY),
+                call(url="a", headers=ANY),
+                call(url="b", headers=ANY),
+                call(url="c", headers=ANY),
             ]
         )
 

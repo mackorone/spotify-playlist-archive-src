@@ -13,7 +13,6 @@ from typing import (
     Any,
     Dict,
     List,
-    Mapping,
     Optional,
     Set,
     Type,
@@ -154,7 +153,6 @@ class Spotify:
         self,
         method: HttpMethod,
         url: str,
-        json: Optional[Mapping[str, Any]] = None,
         *,
         expected_response_type: ResponseType = ResponseType.JSON,
         max_spend_seconds: Optional[float] = None,
@@ -184,7 +182,6 @@ class Spotify:
             # Prepare the request
             aenter_to_send_request = func(
                 url=url,
-                json=json,
                 headers={"Authorization": f"Bearer {self._access_token}"},
             )
 
