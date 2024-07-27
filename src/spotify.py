@@ -163,6 +163,7 @@ class Spotify:
         self, url: str, *, request_retry_budget: Optional[RetryBudget] = None
     ) -> Dict[str, Any]:
         async def _get(url: str) -> Dict[str, Any]:
+            logger.debug(f"GET {url}")
             return await self._make_retryable_request(
                 method=HttpMethod.GET,
                 url=url,
@@ -302,7 +303,7 @@ class Spotify:
                 error = (data or {}).get("error") or {}
                 error_message = error.get("message")
                 error_info = f"{error_message} ({status})"
-                if status == 404:
+                if status == 400 or status == 404:
                     raise ResourceNotFoundError(error_info)
                 if raise_if_request_fails:
                     raise RequestFailedError(error_info)

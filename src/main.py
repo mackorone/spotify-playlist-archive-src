@@ -40,7 +40,16 @@ async def main() -> None:
         action="store_true",
         help="Commit and push updated playlists upstream",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Include debug logs",
+    )
     args = parser.parse_args()
+
+    if args.verbose:
+        configure_logging(level=logging.DEBUG)
+
     auto_register = bool(args.auto_register)
     commit_and_push = bool(args.commit_and_push)
 

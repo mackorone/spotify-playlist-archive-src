@@ -79,7 +79,7 @@ class TestSendRequestAndCoerceErrors(IsolatedAsyncioTestCase):
 
     async def test_request_failed_error(self) -> None:
         async with self.aenter_to_send_request as response:
-            response.status = 400
+            response.status = 402
             response.json.return_value = {"error": {"message": "foo"}}
         # Problematic for raise_if_request_fails=True
         with self.assertRaises(RequestFailedError) as e:
@@ -88,7 +88,7 @@ class TestSendRequestAndCoerceErrors(IsolatedAsyncioTestCase):
                 expected_response_type=ResponseType.JSON,
                 raise_if_request_fails=True,
             )
-        self.assertEqual(str(e.exception), "foo (400)")
+        self.assertEqual(str(e.exception), "foo (402)")
         # No problems for raise_if_request_fails=False
         await Spotify._send_request_and_coerce_errors(
             aenter_to_send_request=self.aenter_to_send_request,
@@ -187,7 +187,7 @@ class TestGetWithRetry(SpotifyTestCase):
 
     async def test_request_failed(self) -> None:
         async with self.mock_session.get() as mock_response:
-            mock_response.status = 400
+            mock_response.status = 402
             mock_response.json.return_value = {"error": None}
         with self.assertRaises(RequestFailedError):
             await self.spotify.get_playlist(PlaylistID("abc123"), alias=None)
