@@ -590,7 +590,7 @@ class Spotify:
                 auth=aiohttp.BasicAuth(client_id, client_secret),
             ) as response:
                 try:
-                    data = await response.json()
+                    data = await response.json(content_type=None)
                 except Exception as e:
                     raise AccessTokenError from e
 
