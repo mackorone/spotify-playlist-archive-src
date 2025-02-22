@@ -57,6 +57,8 @@ class FileUpdater:
         async with Spotify(
             client_id=Environment.get_env("SPOTIFY_CLIENT_ID") or "",
             client_secret=Environment.get_env("SPOTIFY_CLIENT_SECRET") or "",
+            # If specified, attempt to fetch playlists as a particular user
+            refresh_token=Environment.get_env("SPOTIFY_REFRESH_TOKEN") or "",
             cache=spotify_cache,
         ) as spotify:
             await cls._update_files_impl(

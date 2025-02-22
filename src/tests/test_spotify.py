@@ -143,6 +143,7 @@ class SpotifyTestCase(IsolatedAsyncioTestCase):
         self.spotify = Spotify(
             client_id="client_id",
             client_secret="client_secret",
+            refresh_token="refresh_token",
         )
 
 
@@ -303,10 +304,12 @@ class TestGetWithRetry(SpotifyTestCase):
                 call(
                     client_id="client_id",
                     client_secret="client_secret",
+                    refresh_token="refresh_token",
                 ),
                 call(
                     client_id="client_id",
                     client_secret="client_secret",
+                    refresh_token="refresh_token",
                 ),
             ]
         )
@@ -942,7 +945,9 @@ class TestGetAccessToken(SpotifyTestCase):
         async with self.mock_session.post.return_value as mock_response:
             mock_response.json.side_effect = Exception
         with self.assertRaises(AccessTokenError):
-            await self.spotify.get_access_token("client_id", "client_secret")
+            await self.spotify.get_access_token(
+                client_id="client_id", client_secret="client_secret", refresh_token=""
+            )
 
     async def test_error(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
@@ -952,7 +957,9 @@ class TestGetAccessToken(SpotifyTestCase):
                 "token_type": "Bearer",
             }
         with self.assertRaises(AccessTokenError):
-            await self.spotify.get_access_token("client_id", "client_secret")
+            await self.spotify.get_access_token(
+                client_id="client_id", client_secret="client_secret", refresh_token=""
+            )
 
     async def test_invalid_access_token(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
@@ -961,7 +968,9 @@ class TestGetAccessToken(SpotifyTestCase):
                 "token_type": "Bearer",
             }
         with self.assertRaises(AccessTokenError):
-            await self.spotify.get_access_token("client_id", "client_secret")
+            await self.spotify.get_access_token(
+                client_id="client_id", client_secret="client_secret", refresh_token=""
+            )
 
     async def test_invalid_token_type(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
@@ -970,7 +979,9 @@ class TestGetAccessToken(SpotifyTestCase):
                 "token_type": "invalid",
             }
         with self.assertRaises(AccessTokenError):
-            await self.spotify.get_access_token("client_id", "client_secret")
+            await self.spotify.get_access_token(
+                client_id="client_id", client_secret="client_secret", refresh_token=""
+            )
 
     async def test_success(self) -> None:
         async with self.mock_session.post.return_value as mock_response:
@@ -978,10 +989,30 @@ class TestGetAccessToken(SpotifyTestCase):
                 "access_token": "token",
                 "token_type": "Bearer",
             }
-        token = await self.spotify.get_access_token("client_id", "client_secret")
+        token = await self.spotify.get_access_token(
+            client_id="client_id", client_secret="client_secret", refresh_token=""
+        )
         self.assertEqual(token, "token")
         self.mock_session.post.assert_called_once_with(
             url="https://accounts.spotify.com/api/token",
             data={"grant_type": "client_credentials"},
-            headers={"Authorization": "Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ="},
+            auth=aiohttp.BasicAuth("client_id", "client_secret"),
+        )
+
+    async def test_success_with_refresh_token(self) -> None:
+        async with self.mock_session.post.return_value as mock_response:
+            mock_response.json.return_value = {
+                "access_token": "token",
+                "token_type": "Bearer",
+            }
+        token = await self.spotify.get_access_token(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+        )
+        self.assertEqual(token, "token")
+        self.mock_session.post.assert_called_once_with(
+            url="https://accounts.spotify.com/api/token",
+            data={"grant_type": "refresh_token", "refresh_token": "refresh_token"},
+            auth=aiohttp.BasicAuth("client_id", "client_secret"),
         )

@@ -34,6 +34,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
         self.mock_get_env.side_effect = lambda name: {
             "SPOTIFY_CLIENT_ID": "client_id",
             "SPOTIFY_CLIENT_SECRET": "client_secret",
+            "SPOTIFY_REFRESH_TOKEN": "refresh_token",
         }[name]
 
         self.mock_spotify = AsyncMock()
@@ -68,10 +69,14 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             [
                 call("SPOTIFY_CLIENT_ID"),
                 call("SPOTIFY_CLIENT_SECRET"),
+                call("SPOTIFY_REFRESH_TOKEN"),
             ]
         )
         self.mock_spotify_class.assert_called_once_with(
-            client_id="client_id", client_secret="client_secret", cache=None
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            cache=None,
         )
         self.mock_update_files_impl.assert_called_once_with(
             now=sentinel.now,

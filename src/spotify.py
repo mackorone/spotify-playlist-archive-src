@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import dataclasses
 import datetime
 import enum
@@ -139,10 +138,12 @@ class Spotify:
         self,
         client_id: str,
         client_secret: str,
+        refresh_token: str,
         cache: Optional[Cache[str, Dict[str, Any]]] = None,
     ) -> None:
         self._client_id: str = client_id
         self._client_secret: str = client_secret
+        self._refresh_token: str = refresh_token
         self._cache: Cache[str, Dict[str, Any]] = cache or NoCache()
         self._access_token: Optional[str] = None
         self._overall_retry_budget: RetryBudget = RetryBudget(seconds=300)
@@ -188,6 +189,7 @@ class Spotify:
                 self._access_token = await self.get_access_token(
                     client_id=self._client_id,
                     client_secret=self._client_secret,
+                    refresh_token=self._refresh_token,
                 )
                 logger.info("Got new access token")
 
@@ -567,18 +569,25 @@ class Spotify:
         return template.format(playlist_id)
 
     @classmethod
-    async def get_access_token(cls, client_id: str, client_secret: str) -> str:
+    async def get_access_token(
+        cls, client_id: str, client_secret: str, refresh_token: str
+    ) -> str:
         if not client_id:
             raise MissingCredentialError("client_id is empty")
         if not client_secret:
             raise MissingCredentialError("client_secret is empty")
-        joined = f"{client_id}:{client_secret}"
-        encoded = base64.b64encode(joined.encode()).decode()
+        if refresh_token:
+            data = {
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            }
+        else:
+            data = {"grant_type": "client_credentials"}
         async with cls._get_session() as session:
             async with session.post(
                 url="https://accounts.spotify.com/api/token",
-                data={"grant_type": "client_credentials"},
-                headers={"Authorization": f"Basic {encoded}"},
+                data=data,
+                auth=aiohttp.BasicAuth(client_id, client_secret),
             ) as response:
                 try:
                     data = await response.json()
