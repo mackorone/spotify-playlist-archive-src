@@ -99,7 +99,7 @@ class Formatter:
         if num_likes is None:
             num_likes_string = "??? likes"
         else:
-            num_likes_string = f"{num_likes:,} like" + ("s" if num_likes > 1 else "")
+            num_likes_string = f"{num_likes:,} like" + ("" if num_likes == 1 else "s")
         num_songs = len(playlist.tracks)
         lines += [
             "{} - {} - {} - {}".format(
