@@ -132,7 +132,7 @@ class RetryBudget:
 
 
 class Spotify:
-    BASE_URL = "https://api.spotify.com/v1/"
+    BASE_URL = "https://api.spotify.com/v1"
 
     def __init__(
         self,
@@ -325,7 +325,7 @@ class Spotify:
     async def get_spotify_user_playlist_ids(self) -> Set[PlaylistID]:
         logger.info("Fetching @spotify playlist IDs")
         playlist_ids: Set[PlaylistID] = set()
-        href = self.BASE_URL + "users/spotify/playlists?limit=50"
+        href = self.BASE_URL + "/users/spotify/playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
             playlist_ids |= {PlaylistID(x) for x in self._extract_ids(data)}
@@ -335,7 +335,7 @@ class Spotify:
     async def get_featured_playlist_ids(self) -> Set[PlaylistID]:
         logger.info("Fetching featured playlist IDs")
         playlist_ids: Set[PlaylistID] = set()
-        href = self.BASE_URL + "browse/featured-playlists?limit=50"
+        href = self.BASE_URL + "/browse/featured-playlists?limit=50"
         while href:
             data = await self._get_with_retry(href)
             playlists = self._extract(data, "playlists", dict, IfNull.COALESCE)
@@ -350,7 +350,7 @@ class Spotify:
         logger.info("Fetching category playlist IDs")
         playlist_ids: Set[PlaylistID] = set()
         category_ids: Set[str] = set()
-        href = self.BASE_URL + "browse/categories?limit=50"
+        href = self.BASE_URL + "/browse/categories?limit=50"
         while href:
             data = await self._get_with_retry(
                 href, request_retry_budget=RetryBudget(seconds=3)
@@ -362,7 +362,7 @@ class Spotify:
             category_ids |= self._extract_ids(categories)
             href = categories.get("next")
         for category in sorted(category_ids):
-            href = self.BASE_URL + f"browse/categories/{category}/playlists?limit=50"
+            href = self.BASE_URL + f"/browse/categories/{category}/playlists?limit=50"
             while href:
                 try:
                     data = await self._get_with_retry(
@@ -556,7 +556,7 @@ class Spotify:
             "{}?fields=external_urls,name,description,snapshot_id,"
             "owner(display_name,external_urls),followers.total"
         )
-        template = cls.BASE_URL + "playlists/" + rest
+        template = cls.BASE_URL + "/playlists/" + rest
         return template.format(playlist_id)
 
     @classmethod
@@ -565,7 +565,7 @@ class Spotify:
             "{}/tracks?fields=items(added_at,track(id,external_urls,"
             "duration_ms,name,album(external_urls,name),artists)),next"
         )
-        template = cls.BASE_URL + "playlists/" + rest
+        template = cls.BASE_URL + "/playlists/" + rest
         return template.format(playlist_id)
 
     @classmethod
