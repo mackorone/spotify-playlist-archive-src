@@ -55,6 +55,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
                 now=sentinel.now,
                 file_manager=sentinel.file_manager,
                 auto_register=sentinel.auto_register,
+                skip_cumulative_playlists=sentinel.skip_cumulative_playlists,
             )
         self.mock_spotify.__aexit__.assert_called_once()
         self.mock_spotify.__aexit__.assert_awaited_once()
@@ -64,6 +65,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             now=sentinel.now,
             file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
+            skip_cumulative_playlists=sentinel.skip_cumulative_playlists,
         )
         self.mock_get_env.assert_has_calls(
             [
@@ -81,8 +83,9 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
         self.mock_update_files_impl.assert_called_once_with(
             now=sentinel.now,
             file_manager=sentinel.file_manager,
-            auto_register=sentinel.auto_register,
             spotify=self.mock_spotify.__aenter__.return_value,
+            auto_register=sentinel.auto_register,
+            skip_cumulative_playlists=sentinel.skip_cumulative_playlists,
         )
         self.mock_spotify.__aexit__.assert_called_once_with(None, None, None)
         self.mock_spotify.__aexit__.assert_awaited_once()
@@ -127,13 +130,16 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
 
     async def _update_files_impl(
         self,
+        *,
         auto_register: bool = False,
+        skip_cumulative_playlists: bool = False,
     ) -> None:
         await FileUpdater._update_files_impl(
             now=self.now,
             file_manager=self.file_manager,
-            auto_register=auto_register,
             spotify=self.mock_spotify,
+            auto_register=auto_register,
+            skip_cumulative_playlists=skip_cumulative_playlists,
         )
 
     @classmethod
@@ -475,7 +481,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
 
         # Next, lets register a playlist
-        with open(self.playlists_dir / "registry" / "abc", "w") as f:
+        with open(self.playlists_dir / "registry" / "abc", "w"):
             pass
 
         # Create a fake playlist
@@ -704,3 +710,85 @@ Snapshot ID: `playlist_snapshot_id`
 
         with open(self.playlists_dir / "registry/abc") as f:
             self.assertEqual(f.read(), "")
+
+    async def test_skip_cumulative_playlists(self) -> None:
+        # Assert that the playlists directory starts out as empty
+        self.assertEqual(sorted(self.playlists_dir.rglob("*")), [])
+
+        # Create the registry directory
+        self.playlists_dir.mkdir()
+        registry_dir = self.playlists_dir / "registry"
+        registry_dir.mkdir()
+
+        # Register a playlist
+        with open(registry_dir / "abc", "w"):
+            pass
+
+        # Create a fake playlist
+        playlist = Playlist(
+            url="playlist_url",
+            original_name="playlist_original_name",
+            unique_name="playlist_unique_name",
+            description="playlist_description",
+            tracks=[
+                Track(
+                    url="trackurl",
+                    name="track_name",
+                    album=Album(
+                        url="album_url",
+                        name="album_name",
+                    ),
+                    artists=[
+                        Artist(
+                            url="artist_one_url",
+                            name="artist_one_name",
+                        ),
+                        Artist(
+                            url="artist_two_url",
+                            name="artist_two_name",
+                        ),
+                    ],
+                    duration_ms=12345,
+                    added_at=self.now,
+                )
+            ],
+            snapshot_id="playlist_snapshot_id",
+            num_followers=999,
+            owner=Owner(
+                url="owner_url",
+                name="owner_name",
+            ),
+        )
+        self.mock_spotify.get_playlist.side_effect = [playlist]
+
+        await self._update_files_impl(skip_cumulative_playlists=True)
+
+        # Make sure the expected dirs and files exist
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_dir()]),
+            [
+                self.playlists_dir / "cumulative",
+                self.playlists_dir / "followers",
+                self.playlists_dir / "metadata",
+                self.playlists_dir / "plain",
+                self.playlists_dir / "pretty",
+                self.playlists_dir / "registry",
+            ],
+        )
+        self.assertEqual(
+            sorted([x for x in self.playlists_dir.rglob("*") if x.is_file()]),
+            [
+                self.playlists_dir / "followers/abc.json",
+                # Note: can skip validating the contents of index.md and the
+                # files in metadata because they're covered by previous tests
+                self.playlists_dir / "index.md",
+                self.playlists_dir / "metadata/metadata-compact.json",
+                self.playlists_dir / "metadata/metadata-compact.json.br",
+                self.playlists_dir / "metadata/metadata-full.json",
+                self.playlists_dir / "metadata/metadata-full.json.br",
+                self.playlists_dir / "plain/abc",
+                self.playlists_dir / "pretty/abc.json",
+                self.playlists_dir / "pretty/abc.md",
+                self.playlists_dir / "registry/abc",
+            ],
+        )

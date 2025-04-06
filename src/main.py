@@ -36,6 +36,11 @@ async def main() -> None:
         help="Automatically register select playlists",
     )
     parser.add_argument(
+        "--skip-cumulative-playlists",
+        action="store_true",
+        help="Do not update cumulative playlists",
+    )
+    parser.add_argument(
         "--commit-and-push",
         action="store_true",
         help="Commit and push updated playlists upstream",
@@ -51,6 +56,7 @@ async def main() -> None:
         configure_logging(level=logging.DEBUG)
 
     auto_register = bool(args.auto_register)
+    skip_cumulative_playlists = bool(args.skip_cumulative_playlists)
     commit_and_push = bool(args.commit_and_push)
 
     file_manager = FileManager(playlists_dir=args.playlists_dir)
@@ -63,8 +69,9 @@ async def main() -> None:
     await FileUpdater.update_files(
         now=now,
         file_manager=file_manager,
-        auto_register=auto_register,
         spotify_cache=spotify_cache,
+        auto_register=auto_register,
+        skip_cumulative_playlists=skip_cumulative_playlists,
     )
     if commit_and_push:
         Committer.commit_and_push_if_github_actions()

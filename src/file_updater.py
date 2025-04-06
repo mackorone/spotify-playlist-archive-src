@@ -51,8 +51,10 @@ class FileUpdater:
         cls,
         now: datetime.datetime,
         file_manager: FileManager,
-        auto_register: bool,
         spotify_cache: Optional[Cache[str, Dict[str, Any]]] = None,
+        *,
+        auto_register: bool,
+        skip_cumulative_playlists: bool,
     ) -> None:
         async with Spotify(
             client_id=Environment.get_env("SPOTIFY_CLIENT_ID") or "",
@@ -64,8 +66,9 @@ class FileUpdater:
             await cls._update_files_impl(
                 now=now,
                 file_manager=file_manager,
-                auto_register=auto_register,
                 spotify=spotify,
+                auto_register=auto_register,
+                skip_cumulative_playlists=skip_cumulative_playlists,
             )
 
     @classmethod
@@ -73,8 +76,10 @@ class FileUpdater:
         cls,
         now: datetime.datetime,
         file_manager: FileManager,
-        auto_register: bool,
         spotify: Spotify,
+        *,
+        auto_register: bool,
+        skip_cumulative_playlists: bool,
     ) -> None:
         # Ensure the output directories exist
         file_manager.ensure_subdirs_exist()
@@ -237,33 +242,37 @@ class FileUpdater:
                 content=Formatter.pretty(playlist_id, playlist),
             )
 
-            # Update cumulative JSON
             today = now.date()
-            cumulative_json_path = file_manager.get_cumulative_json_path(playlist_id)
-            prev_cumulative_json_content = cls._get_file_content_or_empty_string(
-                cumulative_json_path
-            )
-            if prev_cumulative_json_content:
-                prev_struct = CumulativePlaylist.from_json(prev_cumulative_json_content)
-            else:
-                prev_struct = CumulativePlaylist(
-                    url="",
-                    name="",
-                    description="",
-                    tracks=[],
-                    date_first_scraped=today,
+            if not skip_cumulative_playlists:
+                # Update cumulative JSON
+                cumulative_json_path = file_manager.get_cumulative_json_path(
+                    playlist_id
                 )
-            new_struct = prev_struct.update(today, playlist)
-            cls._maybe_update_file(
-                path=cumulative_json_path,
-                content=new_struct.to_json() + "\n",
-            )
-
-            # Update cumulative markdown
-            cls._maybe_update_file(
-                path=file_manager.get_cumulative_markdown_path(playlist_id),
-                content=Formatter.cumulative(playlist_id, new_struct),
-            )
+                prev_cumulative_json_content = cls._get_file_content_or_empty_string(
+                    cumulative_json_path
+                )
+                if prev_cumulative_json_content:
+                    prev_struct = CumulativePlaylist.from_json(
+                        prev_cumulative_json_content
+                    )
+                else:
+                    prev_struct = CumulativePlaylist(
+                        url="",
+                        name="",
+                        description="",
+                        tracks=[],
+                        date_first_scraped=today,
+                    )
+                new_struct = prev_struct.update(today, playlist)
+                cls._maybe_update_file(
+                    path=cumulative_json_path,
+                    content=new_struct.to_json() + "\n",
+                )
+                # Update cumulative markdown
+                cls._maybe_update_file(
+                    path=file_manager.get_cumulative_markdown_path(playlist_id),
+                    content=Formatter.cumulative(playlist_id, new_struct),
+                )
 
             # Update followers JSON
             followers_json_path = file_manager.get_followers_json_path(playlist_id)
