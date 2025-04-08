@@ -10,7 +10,9 @@ from playlist_types import (
     CumulativePlaylist,
     CumulativeTrack,
     Owner,
+    PlayHistoryForDate,
     Playlist,
+    RecentlyPlayedTrack,
     Track,
 )
 
@@ -538,3 +540,71 @@ class TestCumulativePlaylistToAndFromJSON(TestCase):
         self.assertEqual(
             cumulative_playlist, CumulativePlaylist.from_json(cumulative_playlist_json)
         )
+
+
+class TestPlayHistoryForDateToAndFromJSON(TestCase):
+    def test_success(self) -> None:
+        history = PlayHistoryForDate(
+            date=datetime.date(year=2025, month=4, day=1),
+            tracks=[
+                RecentlyPlayedTrack(
+                    url="track_url",
+                    name="track_name",
+                    album=Album(
+                        url="album_url",
+                        name="album_name",
+                    ),
+                    artists=[
+                        Artist(
+                            url="artist_url",
+                            name="artist_name",
+                        )
+                    ],
+                    popularity=65,
+                    duration_ms=100001,
+                    context_type="album",
+                    context_url="https://open.spotify.com/album/album_id",
+                    played_at=datetime.datetime(
+                        year=2025,
+                        month=4,
+                        day=1,
+                        hour=7,
+                        minute=56,
+                        second=10,
+                        microsecond=549000,
+                    ),
+                ),
+            ],
+        )
+        history_json = history.to_json()
+        self.assertEqual(
+            history_json,
+            textwrap.dedent(
+                """\
+                {
+                  "date": "2025-04-01",
+                  "tracks": [
+                    {
+                      "album": {
+                        "name": "album_name",
+                        "url": "album_url"
+                      },
+                      "artists": [
+                        {
+                          "name": "artist_name",
+                          "url": "artist_url"
+                        }
+                      ],
+                      "context_type": "album",
+                      "context_url": "https://open.spotify.com/album/album_id",
+                      "duration_ms": 100001,
+                      "name": "track_name",
+                      "played_at": "2025-04-01T07:56:10.549000Z",
+                      "popularity": 65,
+                      "url": "track_url"
+                    }
+                  ]
+                }"""
+            ),
+        )
+        self.assertEqual(history, PlayHistoryForDate.from_json(history_json))

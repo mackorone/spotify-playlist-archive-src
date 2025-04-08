@@ -13,7 +13,7 @@ from file_manager import FileManager, MalformedAliasError, UnexpectedFilesError
 from file_updater import FileUpdater
 from plants.unittest_utils import UnittestUtils
 from playlist_id import PlaylistID
-from playlist_types import Album, Artist, Owner, Playlist, Track
+from playlist_types import Album, Artist, Owner, Playlist, RecentlyPlayedTrack, Track
 from spotify import (
     RequestFailedError,
     RequestRetryBudgetExceededError,
@@ -48,6 +48,12 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             self, "file_updater.FileUpdater._update_files_impl", new_callable=AsyncMock
         )
 
+        self.mock_update_play_history = UnittestUtils.patch(
+            self,
+            "file_updater.FileUpdater._update_play_history",
+            new_callable=AsyncMock,
+        )
+
     async def test_error(self) -> None:
         self.mock_update_files_impl.side_effect = Exception
         with self.assertRaises(Exception):
@@ -56,6 +62,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
                 file_manager=sentinel.file_manager,
                 auto_register=sentinel.auto_register,
                 skip_cumulative_playlists=sentinel.skip_cumulative_playlists,
+                history_dir=sentinel.history_dir,
             )
         self.mock_spotify.__aexit__.assert_called_once()
         self.mock_spotify.__aexit__.assert_awaited_once()
@@ -66,6 +73,7 @@ class TestUpdateFiles(IsolatedAsyncioTestCase):
             file_manager=sentinel.file_manager,
             auto_register=sentinel.auto_register,
             skip_cumulative_playlists=sentinel.skip_cumulative_playlists,
+            history_dir=sentinel.history_dir,
         )
         self.mock_get_env.assert_has_calls(
             [
@@ -112,14 +120,14 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
         )
 
         # Mock the spotify class
-        self.mock_spotify_class = UnittestUtils.patch(
+        mock_spotify_class = UnittestUtils.patch(
             self,
             "file_updater.Spotify",
             new_callable=Mock,
         )
 
         # Use AsyncMocks for async methods
-        self.mock_spotify = self.mock_spotify_class.return_value
+        self.mock_spotify = mock_spotify_class.return_value
         self.mock_spotify.get_spotify_user_playlist_ids = AsyncMock()
         self.mock_spotify.get_featured_playlist_ids = AsyncMock()
         self.mock_spotify.get_category_playlist_ids = AsyncMock()
@@ -792,3 +800,402 @@ Snapshot ID: `playlist_snapshot_id`
                 self.playlists_dir / "registry/abc",
             ],
         )
+
+
+class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        repo_dir = pathlib.Path(self.temp_dir.name)
+        playlists_dir = repo_dir / "playlists"
+        self.history_dir = playlists_dir / "history"
+
+        # Mock the spotify class
+        mock_spotify_class = UnittestUtils.patch(
+            self,
+            "file_updater.Spotify",
+            new_callable=Mock,
+        )
+
+        # Use AsyncMocks for async methods
+        self.mock_spotify = mock_spotify_class.return_value
+        self.mock_spotify.get_recently_played_tracks = AsyncMock()
+
+    async def asyncTearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    async def _update_play_history(self) -> None:
+        await FileUpdater._update_play_history(
+            history_dir=self.history_dir,
+            spotify=self.mock_spotify,
+        )
+
+    # Just a helper function for getting a RecentlyPlayedTrack object to make
+    # the test cases below more succinct
+    def _get_recently_played_track(
+        self,
+        track_id: str,
+        played_at: datetime.datetime,
+    ) -> RecentlyPlayedTrack:
+        return RecentlyPlayedTrack(
+            url=f"track_url_{track_id}",
+            name=f"track_name_{track_id}",
+            album=Album(
+                url=f"album_url_{track_id}",
+                name=f"album_name_{track_id}",
+            ),
+            artists=[
+                Artist(
+                    url=f"artist_url_{track_id}",
+                    name=f"artist_name_{track_id}",
+                ),
+            ],
+            popularity=25,
+            duration_ms=12345,
+            context_type=f"context_type_{track_id}",
+            context_url=f"context_url_{track_id}",
+            played_at=played_at,
+        )
+
+    async def test_empty(self) -> None:
+        self.assertFalse(self.history_dir.exists())
+        await self._update_play_history()
+        self.assertTrue(self.history_dir.exists())
+        # Double check exist_ok = True
+        await self._update_play_history()
+
+    async def test_request_failed(self) -> None:
+        self.mock_spotify.get_recently_played_tracks.side_effect = RequestFailedError
+        # Uncategorized request failures should terminate the program
+        with self.assertRaises(RequestFailedError):
+            await self._update_play_history()
+
+    async def test_existing_file_wrong_date(self) -> None:
+        # Create the history directory
+        await self._update_play_history()
+
+        # Create a dummy file with bad data (mismatch date)
+        with open(self.history_dir / "2025-04-01.json", "w") as f:
+            f.write(
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-03-31",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name",
+                            "url": "album_url"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name",
+                              "url": "artist_url"
+                            }
+                          ],
+                          "context_type": "context_type",
+                          "context_url": "context_url",
+                          "duration_ms": 12345,
+                          "name": "track_name",
+                          "played_at": "2025-03-31T00:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )
+
+        # Have Spotify return a track corresponding to the bad file
+        self.mock_spotify.get_recently_played_tracks.return_value = [
+            self._get_recently_played_track(
+                track_id="a", played_at=datetime.datetime(year=2025, month=4, day=1)
+            )
+        ]
+
+        # Make sure an error is raised
+        with self.assertRaises(RuntimeError):
+            await self._update_play_history()
+
+    async def test_existing_file_unsorted_tracks(self) -> None:
+        # Create the history directory
+        await self._update_play_history()
+
+        # Create a dummy file with bad data (unsorted tracks)
+        with open(self.history_dir / "2025-04-01.json", "w") as f:
+            f.write(
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-03-31",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name_foo",
+                            "url": "album_url_foo"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_foo",
+                              "url": "artist_url_foo"
+                            }
+                          ],
+                          "context_type": "context_type_foo",
+                          "context_url": "context_url_foo",
+                          "duration_ms": 12345,
+                          "name": "track_name_foo",
+                          "played_at": "2025-04-01T00:00:00.000001Z",
+                          "popularity": 25,
+                          "url": "track_url_foo"
+                        },
+                        {
+                          "album": {
+                            "name": "album_name_bar",
+                            "url": "album_url_bar"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_bar",
+                              "url": "artist_url_bar"
+                            }
+                          ],
+                          "context_type": "context_type_bar",
+                          "context_url": "context_url_bar",
+                          "duration_ms": 12345,
+                          "name": "track_name_bar",
+                          "played_at": "2025-04-01T00:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_bar"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )
+
+        # Have Spotify return a track corresponding to the bad file
+        self.mock_spotify.get_recently_played_tracks.return_value = [
+            self._get_recently_played_track(
+                track_id="a", played_at=datetime.datetime(year=2025, month=4, day=1)
+            )
+        ]
+
+        # Make sure an error is raised
+        with self.assertRaises(RuntimeError):
+            await self._update_play_history()
+
+    async def test_success(self) -> None:
+        # Assert that the history directory starts out as empty
+        self.assertEqual(sorted(self.history_dir.rglob("*")), [])
+
+        # The first call to get_recently_played_tracks returns a single track
+        self.mock_spotify.get_recently_played_tracks.return_value = [
+            self._get_recently_played_track(
+                track_id="a",
+                played_at=datetime.datetime(year=2025, month=4, day=1, hour=12),
+            )
+        ]
+
+        # Call the method being tested
+        await self._update_play_history()
+
+        # Make sure the expected file exists
+        self.assertEqual(
+            sorted(self.history_dir.rglob("*")),
+            [self.history_dir / "2025-04-01.json"],
+        )
+
+        # Now check the contents of the file
+        with open(self.history_dir / "2025-04-01.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-04-01",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name_a",
+                            "url": "album_url_a"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_a",
+                              "url": "artist_url_a"
+                            }
+                          ],
+                          "context_type": "context_type_a",
+                          "context_url": "context_url_a",
+                          "duration_ms": 12345,
+                          "name": "track_name_a",
+                          "played_at": "2025-04-01T12:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_a"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )
+
+        # The second call to get_recently_played_tracks returns multiple
+        # tracks, intentionally out of order to test grouping and sorting
+        self.mock_spotify.get_recently_played_tracks.return_value = [
+            # A newer day than before
+            self._get_recently_played_track(
+                track_id="b", played_at=datetime.datetime(year=2025, month=4, day=2)
+            ),
+            # An older day than before
+            self._get_recently_played_track(
+                track_id="c",
+                played_at=datetime.datetime(year=2025, month=3, day=31),
+            ),
+            # The same day as before, exact same time
+            self._get_recently_played_track(
+                track_id="d",
+                played_at=datetime.datetime(year=2025, month=4, day=1, hour=12),
+            ),
+            # The same day as before, 1 hour earlier
+            self._get_recently_played_track(
+                track_id="e",
+                played_at=datetime.datetime(year=2025, month=4, day=1, hour=11),
+            ),
+            # The same day as before, 1 hour later
+            self._get_recently_played_track(
+                track_id="f",
+                played_at=datetime.datetime(year=2025, month=4, day=1, hour=13),
+            ),
+        ]
+
+        # Call the method being tested
+        await self._update_play_history()
+
+        # Make sure the expected files exist
+        self.assertEqual(
+            sorted(self.history_dir.rglob("*")),
+            [
+                self.history_dir / "2025-03-31.json",
+                self.history_dir / "2025-04-01.json",
+                self.history_dir / "2025-04-02.json",
+            ],
+        )
+
+        # Now check the contents of each file
+        with open(self.history_dir / "2025-03-31.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-03-31",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name_c",
+                            "url": "album_url_c"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_c",
+                              "url": "artist_url_c"
+                            }
+                          ],
+                          "context_type": "context_type_c",
+                          "context_url": "context_url_c",
+                          "duration_ms": 12345,
+                          "name": "track_name_c",
+                          "played_at": "2025-03-31T00:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_c"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )
+
+        with open(self.history_dir / "2025-04-01.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-04-01",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name_a",
+                            "url": "album_url_a"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_a",
+                              "url": "artist_url_a"
+                            }
+                          ],
+                          "context_type": "context_type_a",
+                          "context_url": "context_url_a",
+                          "duration_ms": 12345,
+                          "name": "track_name_a",
+                          "played_at": "2025-04-01T12:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_a"
+                        },
+                        {
+                          "album": {
+                            "name": "album_name_f",
+                            "url": "album_url_f"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_f",
+                              "url": "artist_url_f"
+                            }
+                          ],
+                          "context_type": "context_type_f",
+                          "context_url": "context_url_f",
+                          "duration_ms": 12345,
+                          "name": "track_name_f",
+                          "played_at": "2025-04-01T13:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_f"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )
+
+        with open(self.history_dir / "2025-04-02.json") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    {
+                      "date": "2025-04-02",
+                      "tracks": [
+                        {
+                          "album": {
+                            "name": "album_name_b",
+                            "url": "album_url_b"
+                          },
+                          "artists": [
+                            {
+                              "name": "artist_name_b",
+                              "url": "artist_url_b"
+                            }
+                          ],
+                          "context_type": "context_type_b",
+                          "context_url": "context_url_b",
+                          "duration_ms": 12345,
+                          "name": "track_name_b",
+                          "played_at": "2025-04-02T00:00:00.000000Z",
+                          "popularity": 25,
+                          "url": "track_url_b"
+                        }
+                      ]
+                    }
+                    """
+                ),
+            )

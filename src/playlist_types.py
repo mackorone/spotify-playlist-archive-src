@@ -383,3 +383,143 @@ class CumulativePlaylist:
     def serialize_date(cls, obj: object) -> str:
         assert isinstance(obj, datetime.date)
         return str(obj)
+
+
+@dataclasses.dataclass(frozen=True)
+class RecentlyPlayedTrack:
+    url: str
+    name: str
+    album: Album
+    artists: Sequence[Artist]
+    popularity: int
+    duration_ms: int
+    context_type: str
+    context_url: str
+    played_at: datetime.datetime
+
+
+@dataclasses.dataclass(frozen=True)
+class PlayHistoryForDate:
+    date: datetime.date
+    tracks: Sequence[RecentlyPlayedTrack]
+
+    def update(
+        self,
+        recently_played: Sequence[RecentlyPlayedTrack],
+    ) -> PlayHistoryForDate:
+        # First, ensure existing tracks are sorted
+        tracks = list(self.tracks)
+        if tracks != sorted(tracks, key=lambda x: x.played_at):
+            raise ValueError("Previously played tracks are not sorted")
+
+        # Next, ensure that recently played tracks are sorted
+        if recently_played != sorted(recently_played, key=lambda x: x.played_at):
+            raise ValueError("Recently played tracks are not sorted")
+
+        # Determine the cutoff
+        after_datetime = None
+        for track in tracks:
+            if after_datetime is None or after_datetime < track.played_at:
+                after_datetime = track.played_at
+
+        # Append new tracks
+        for track in recently_played:
+            if after_datetime is not None and track.played_at <= after_datetime:
+                continue
+            tracks.append(track)
+
+        return PlayHistoryForDate(date=self.date, tracks=tracks)
+
+    @classmethod
+    def from_json(cls, content: str) -> PlayHistoryForDate:
+        history = json.loads(content)
+        assert isinstance(history, dict)
+
+        date_string = history["date"]
+        assert isinstance(date_string, str)
+        date = datetime.datetime.strptime(date_string, "%Y-%m-%d").date()
+        assert isinstance(date, datetime.date)
+
+        tracks: List[RecentlyPlayedTrack] = []
+        assert isinstance(history["tracks"], list)
+        for track in history["tracks"]:
+            assert isinstance(track, dict)
+
+            track_url = track["url"]
+            assert isinstance(track_url, str)
+
+            track_name = track["name"]
+            assert isinstance(track_name, str)
+
+            assert isinstance(track["album"], dict)
+            album_url = track["album"]["url"]
+            assert isinstance(album_url, str)
+            album_name = track["album"]["name"]
+            assert isinstance(album_name, str)
+
+            artists = []
+            assert isinstance(track["artists"], list)
+            for artist in track["artists"]:
+                assert isinstance(artist, dict)
+                artist_url = artist["url"]
+                assert isinstance(artist_url, str)
+                artist_name = artist["name"]
+                assert isinstance(artist_name, str)
+                artists.append(Artist(url=artist_url, name=artist_name))
+
+            popularity = track["popularity"]
+            assert isinstance(popularity, int)
+
+            duration_ms = track["duration_ms"]
+            assert isinstance(duration_ms, int)
+
+            context_type = track["context_type"]
+            assert isinstance(context_type, str)
+
+            context_url = track["context_url"]
+            assert isinstance(context_url, str)
+
+            played_at_string = track["played_at"]
+            assert isinstance(played_at_string, str)
+            played_at = datetime.datetime.strptime(
+                played_at_string, "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            assert isinstance(played_at, datetime.datetime)
+
+            tracks.append(
+                RecentlyPlayedTrack(
+                    url=track_url,
+                    name=track_name,
+                    album=Album(
+                        url=album_url,
+                        name=album_name,
+                    ),
+                    artists=artists,
+                    popularity=popularity,
+                    duration_ms=duration_ms,
+                    context_type=context_type,
+                    context_url=context_url,
+                    played_at=played_at,
+                )
+            )
+
+        return PlayHistoryForDate(
+            date=date,
+            tracks=tracks,
+        )
+
+    def to_json(self) -> str:
+        return json.dumps(
+            dataclasses.asdict(self),
+            indent=2,
+            sort_keys=True,
+            default=self.serialize_date,
+        )
+
+    @classmethod
+    def serialize_date(cls, obj: object) -> str:
+        if isinstance(obj, datetime.datetime):
+            return obj.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        elif isinstance(obj, datetime.date):
+            return str(obj)
+        raise RuntimeError(f"Unexpected object: {obj = }, {type(obj) = }")

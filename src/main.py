@@ -22,8 +22,12 @@ async def main() -> None:
     parser.add_argument(
         "--playlists-dir",
         type=pathlib.Path,
-        required=True,
-        help="Path to the playlists directory",
+        help="If specified, fetch and update playlist data",
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=pathlib.Path,
+        help="If specified, fetch and record recently played tracks",
     )
     parser.add_argument(
         "--cache-dir",
@@ -43,7 +47,7 @@ async def main() -> None:
     parser.add_argument(
         "--commit-and-push",
         action="store_true",
-        help="Commit and push updated playlists upstream",
+        help="Commit and push changes upstream",
     )
     parser.add_argument(
         "--verbose",
@@ -55,16 +59,18 @@ async def main() -> None:
     if args.verbose:
         configure_logging(level=logging.DEBUG)
 
-    auto_register = bool(args.auto_register)
-    skip_cumulative_playlists = bool(args.skip_cumulative_playlists)
-    commit_and_push = bool(args.commit_and_push)
-
-    file_manager = FileManager(playlists_dir=args.playlists_dir)
+    file_manager = None
+    if args.playlists_dir:
+        file_manager = FileManager(playlists_dir=args.playlists_dir)
 
     if args.cache_dir:
         spotify_cache = ReadThroughCache(cache_dir=args.cache_dir)
     else:
         spotify_cache = NoCache()
+
+    auto_register = bool(args.auto_register)
+    skip_cumulative_playlists = bool(args.skip_cumulative_playlists)
+    commit_and_push = bool(args.commit_and_push)
 
     await FileUpdater.update_files(
         now=now,
@@ -72,6 +78,7 @@ async def main() -> None:
         spotify_cache=spotify_cache,
         auto_register=auto_register,
         skip_cumulative_playlists=skip_cumulative_playlists,
+        history_dir=args.history_dir,
     )
     if commit_and_push:
         Committer.commit_and_push_if_github_actions()

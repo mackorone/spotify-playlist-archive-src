@@ -24,7 +24,7 @@ from alias import Alias
 from plants.cache import Cache, NoCache
 from plants.external import external
 from playlist_id import PlaylistID
-from playlist_types import Album, Artist, Owner, Playlist, Track
+from playlist_types import Album, Artist, Owner, Playlist, RecentlyPlayedTrack, Track
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -391,6 +391,103 @@ class Spotify:
                 continue
             ids.add(id_)
         return ids
+
+    # Note: a track is considered "recently played" if it ends naturally,
+    # regardless of how much of the track was actually played
+    async def get_recently_played_tracks(self) -> List[RecentlyPlayedTrack]:
+        tracks = []
+        # The maximum tracks per request is 50. And the API will only ever
+        # return the 50 most recent tracks, even if the cursor is set .
+        href = self.BASE_URL + "/me/player/recently-played?limit=50"
+        while href:
+            data = await self._get_with_retry(href, request_retry_budget=None)
+            tracks += self._parse_recently_played_tracks(data)
+            href = data.get("next")
+        return tracks
+
+    def _parse_recently_played_tracks(
+        self, data: Dict[str, Any]
+    ) -> List[RecentlyPlayedTrack]:
+        tracks: List[RecentlyPlayedTrack] = []
+        items = self._extract(data, "items", list, IfNull.RAISE)
+        for item in items:
+            if not isinstance(item, dict):
+                raise InvalidDataError(f"Invalid item: {item}")
+
+            track = self._extract(item, "track", dict, IfNull.COALESCE)
+            if not track:
+                continue
+            track_urls = self._extract(track, "external_urls", dict, IfNull.RAISE)
+            track_url = self._extract(track_urls, "spotify", str, IfNull.COALESCE)
+            if not track_url:
+                logger.warning("Skipping track with empty URL")
+                continue
+            track_name = self._extract(track, "name", str, IfNull.COALESCE)
+            if not track_name:
+                logger.warning(f"Empty track name: {track_url}")
+
+            album = self._extract(track, "album", dict, IfNull.RAISE)
+            album_urls = self._extract(album, "external_urls", dict, IfNull.RAISE)
+            album_url = self._extract(album_urls, "spotify", str, IfNull.COALESCE)
+            album_name = self._extract(album, "name", str, IfNull.COALESCE)
+            if not album_name:
+                logger.warning(f"Empty album name: {album_url}")
+
+            artists = self._extract(track, "artists", list, IfNull.RAISE)
+            artist_objs = []
+            for artist in artists:
+                if not isinstance(artist, dict):
+                    raise InvalidDataError(f"Invalid artist: {artist}")
+                artist_urls = self._extract(artist, "external_urls", dict, IfNull.RAISE)
+                artist_url = self._extract(artist_urls, "spotify", str, IfNull.COALESCE)
+                artist_name = (
+                    self._extract(artist, "name", str, IfNull.COALESCE)
+                    or self._extract(artist, "type", str, IfNull.COALESCE)
+                    or ""
+                )
+                if not artist_name:
+                    logger.warning(f"Empty artist name: {artist_url}")
+                artist_objs.append(Artist(url=artist_url, name=artist_name))
+
+            if not artist_objs:
+                logger.warning(f"Empty track artists: {track_url}")
+
+            popularity = self._extract(track, "popularity", int, IfNull.RAISE)
+            duration_ms = self._extract(track, "duration_ms", int, IfNull.RAISE)
+
+            # Sometimes, context can be None
+            context = self._extract(item, "context", dict, IfNull.COALESCE)
+            context_type = self._extract(context, "type", str, IfNull.COALESCE)
+            context_urls = self._extract(
+                context, "external_urls", dict, IfNull.COALESCE
+            )
+            context_url = self._extract(context_urls, "spotify", str, IfNull.COALESCE)
+
+            played_at_string = self._extract(item, "played_at", str, IfNull.RAISE)
+            if played_at_string == "1970-01-01T00:00:00Z":
+                raise InvalidDataError(f"Unexpected sential {played_at_string = }")
+            played_at = datetime.datetime.strptime(
+                played_at_string, "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+
+            tracks.append(
+                RecentlyPlayedTrack(
+                    url=track_url,
+                    name=track_name,
+                    album=Album(
+                        url=album_url,
+                        name=album_name,
+                    ),
+                    artists=artist_objs,
+                    popularity=popularity,
+                    duration_ms=duration_ms,
+                    context_type=context_type,
+                    context_url=context_url,
+                    played_at=played_at,
+                )
+            )
+
+        return tracks
 
     async def get_playlist(
         self,

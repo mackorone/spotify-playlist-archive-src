@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 import collections
 import datetime
 import difflib
@@ -16,7 +17,7 @@ from plants.cache import Cache
 from plants.environment import Environment
 from plants.logging import Color
 from playlist_id import PlaylistID
-from playlist_types import CumulativePlaylist, Playlist
+from playlist_types import CumulativePlaylist, PlayHistoryForDate, Playlist
 from spotify import (
     InvalidDataError,
     RequestRetryBudgetExceededError,
@@ -49,12 +50,13 @@ class FileUpdater:
     @classmethod
     async def update_files(
         cls,
-        now: datetime.datetime,
-        file_manager: FileManager,
-        spotify_cache: Optional[Cache[str, Dict[str, Any]]] = None,
         *,
+        now: datetime.datetime,
+        file_manager: Optional[FileManager] = None,
+        spotify_cache: Optional[Cache[str, Dict[str, Any]]] = None,
         auto_register: bool,
         skip_cumulative_playlists: bool,
+        history_dir: Optional[pathlib.Path] = None,
     ) -> None:
         async with Spotify(
             client_id=Environment.get_env("SPOTIFY_CLIENT_ID") or "",
@@ -63,13 +65,16 @@ class FileUpdater:
             refresh_token=Environment.get_env("SPOTIFY_REFRESH_TOKEN") or "",
             cache=spotify_cache,
         ) as spotify:
-            await cls._update_files_impl(
-                now=now,
-                file_manager=file_manager,
-                spotify=spotify,
-                auto_register=auto_register,
-                skip_cumulative_playlists=skip_cumulative_playlists,
-            )
+            if file_manager:
+                await cls._update_files_impl(
+                    now=now,
+                    file_manager=file_manager,
+                    spotify=spotify,
+                    auto_register=auto_register,
+                    skip_cumulative_playlists=skip_cumulative_playlists,
+                )
+            if history_dir:
+                await cls._update_play_history(history_dir=history_dir, spotify=spotify)
 
     @classmethod
     async def _update_files_impl(
@@ -460,3 +465,60 @@ class FileUpdater:
             fraction_of_lines_kept=fraction_of_lines_kept,
             fraction_of_lines_removed=fraction_of_lines_removed,
         )
+
+    @classmethod
+    def _get_history_json_path(
+        cls,
+        history_dir: pathlib.Path,
+        date: datetime.date,
+    ) -> pathlib.Path:
+        return history_dir / f"{date}.json"
+
+    @classmethod
+    async def _update_play_history(
+        cls,
+        history_dir: pathlib.Path,
+        spotify: Spotify,
+    ) -> None:
+        # Ensure the output directory exists
+        history_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get recently played tracks
+        logger.info("Getting recently played tracks")
+        recently_played_tracks = await spotify.get_recently_played_tracks()
+        recently_played_tracks_by_date = collections.defaultdict(list)
+        for track in sorted(recently_played_tracks, key=lambda track: track.played_at):
+            recently_played_tracks_by_date[track.played_at.date()].append(track)
+
+        logger.info(f"Got {len(recently_played_tracks)} recenty played tracks")
+        for date, tracks in sorted(recently_played_tracks_by_date.items()):
+            logger.debug(f"  {date}: {len(tracks)}")
+
+        # Read those dates' history into memory
+        date_to_play_history = {}
+        for date in sorted(recently_played_tracks_by_date.keys()):
+            path = cls._get_history_json_path(history_dir, date)
+            prev_content = cls._get_file_content_or_empty_string(path)
+            if prev_content:
+                prev_struct = PlayHistoryForDate.from_json(prev_content)
+            else:
+                prev_struct = PlayHistoryForDate(
+                    date=date,
+                    tracks=[],
+                )
+            if prev_struct.date != date:
+                raise RuntimeError(f"Date field doesn't match filename: {path}")
+            date_to_play_history[date] = prev_struct
+
+        # Update existing structs with new data
+        for date, prev_struct in sorted(date_to_play_history.items()):
+            date_to_play_history[date] = prev_struct.update(
+                recently_played_tracks_by_date[date]
+            )
+
+        # Write the new structs to the files
+        for date, new_struct in date_to_play_history.items():
+            cls._maybe_update_file(
+                path=cls._get_history_json_path(history_dir, date),
+                content=new_struct.to_json() + "\n",
+            )
