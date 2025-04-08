@@ -23,8 +23,15 @@ async def login() -> None:
         "client_id": client_id,
         "response_type": "code",
         "redirect_uri": "http://localhost:8000",
-        # Both scopes are useful when fetching playlists
-        "scope": "playlist-read-private playlist-read-collaborative",
+        "scope": " ".join(
+            [
+                # For fetching playlists
+                "playlist-read-private",
+                "playlist-read-collaborative",
+                # For getting recently played tracks
+                "user-read-recently-played",
+            ]
+        ),
     }
     target_url = "https://accounts.spotify.com/authorize?{}".format(
         urllib.parse.urlencode(query_params)
