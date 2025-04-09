@@ -7,7 +7,7 @@ from typing import List, Mapping, Optional, Tuple
 
 from plants.markdown import MarkdownEscapedString
 from playlist_id import PlaylistID
-from playlist_types import CumulativePlaylist, Playlist, Track
+from playlist_types import CumulativePlaylist, PlayHistoryForDate, Playlist, Track
 from url import URL
 
 
@@ -19,6 +19,7 @@ class Formatter:
     LENGTH = "Length"
     ADDED = "Added"
     REMOVED = "Removed"
+    PLAYED_AT = "Played At"
 
     ARTIST_SEPARATOR = ", "
 
@@ -210,6 +211,44 @@ class Formatter:
             f"\\*This playlist was first scraped on {playlist.date_first_scraped}. "
             "Prior content cannot be recovered."
         )
+
+        return "\n".join(lines) + "\n"
+
+    @classmethod
+    def history(cls, history: PlayHistoryForDate) -> str:
+        columns = [
+            cls.PLAYED_AT,
+            cls.TITLE,
+            cls.ARTISTS,
+            cls.ALBUM,
+            cls.LENGTH,
+        ]
+
+        vertical_separators = ["|"] * (len(columns) + 1)
+        line_template = " {} ".join(vertical_separators)
+        divider_line = "---".join(vertical_separators)
+
+        lines = [
+            line_template.format(*columns),
+            divider_line,
+        ]
+        for i, track in enumerate(history.tracks):
+            lines.append(
+                line_template.format(
+                    # No need to include date or timezone since the date
+                    # matches the filename and the timezone is always UTC
+                    track.played_at.strftime("%-I:%M %p"),
+                    cls._link(MarkdownEscapedString(track.name), track.url),
+                    cls.ARTIST_SEPARATOR.join(
+                        [
+                            cls._link(MarkdownEscapedString(artist.name), artist.url)
+                            for artist in track.artists
+                        ]
+                    ),
+                    cls._link(MarkdownEscapedString(track.album.name), track.album.url),
+                    cls._format_duration(track.duration_ms),
+                )
+            )
 
         return "\n".join(lines) + "\n"
 

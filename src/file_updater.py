@@ -475,6 +475,14 @@ class FileUpdater:
         return history_dir / f"{date}.json"
 
     @classmethod
+    def _get_history_md_path(
+        cls,
+        history_dir: pathlib.Path,
+        date: datetime.date,
+    ) -> pathlib.Path:
+        return history_dir / f"{date}.md"
+
+    @classmethod
     async def _update_play_history(
         cls,
         history_dir: pathlib.Path,
@@ -521,4 +529,8 @@ class FileUpdater:
             cls._maybe_update_file(
                 path=cls._get_history_json_path(history_dir, date),
                 content=new_struct.to_json() + "\n",
+            )
+            cls._maybe_update_file(
+                path=cls._get_history_md_path(history_dir, date),
+                content=Formatter.history(new_struct),
             )

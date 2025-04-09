@@ -1002,10 +1002,13 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
         # Make sure the expected file exists
         self.assertEqual(
             sorted(self.history_dir.rglob("*")),
-            [self.history_dir / "2025-04-01.json"],
+            [
+                self.history_dir / "2025-04-01.json",
+                self.history_dir / "2025-04-01.md",
+            ],
         )
 
-        # Now check the contents of the file
+        # Now check the contents of each file
         with open(self.history_dir / "2025-04-01.json") as f:
             self.assertEqual(
                 f.read(),
@@ -1035,6 +1038,18 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
                         }
                       ]
                     }
+                    """
+                ),
+            )
+
+        with open(self.history_dir / "2025-04-01.md") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    | Played At | Title | Artist(s) | Album | Length |
+                    |---|---|---|---|---|
+                    | 12:00 PM | [track\\_name\\_a](track_url_a) | [artist\\_name\\_a](artist_url_a) | [album\\_name\\_a](album_url_a) | 0:12 |
                     """
                 ),
             )
@@ -1076,8 +1091,11 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
             sorted(self.history_dir.rglob("*")),
             [
                 self.history_dir / "2025-03-31.json",
+                self.history_dir / "2025-03-31.md",
                 self.history_dir / "2025-04-01.json",
+                self.history_dir / "2025-04-01.md",
                 self.history_dir / "2025-04-02.json",
+                self.history_dir / "2025-04-02.md",
             ],
         )
 
@@ -1111,6 +1129,18 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
                         }
                       ]
                     }
+                    """
+                ),
+            )
+
+        with open(self.history_dir / "2025-03-31.md") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    | Played At | Title | Artist(s) | Album | Length |
+                    |---|---|---|---|---|
+                    | 12:00 AM | [track\\_name\\_c](track_url_c) | [artist\\_name\\_c](artist_url_c) | [album\\_name\\_c](album_url_c) | 0:12 |
                     """
                 ),
             )
@@ -1167,6 +1197,19 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
                 ),
             )
 
+        with open(self.history_dir / "2025-04-01.md") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    | Played At | Title | Artist(s) | Album | Length |
+                    |---|---|---|---|---|
+                    | 12:00 PM | [track\\_name\\_a](track_url_a) | [artist\\_name\\_a](artist_url_a) | [album\\_name\\_a](album_url_a) | 0:12 |
+                    | 1:00 PM | [track\\_name\\_f](track_url_f) | [artist\\_name\\_f](artist_url_f) | [album\\_name\\_f](album_url_f) | 0:12 |
+                    """
+                ),
+            )
+
         with open(self.history_dir / "2025-04-02.json") as f:
             self.assertEqual(
                 f.read(),
@@ -1196,6 +1239,18 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
                         }
                       ]
                     }
+                    """
+                ),
+            )
+
+        with open(self.history_dir / "2025-04-02.md") as f:
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
+                    | Played At | Title | Artist(s) | Album | Length |
+                    |---|---|---|---|---|
+                    | 12:00 AM | [track\\_name\\_b](track_url_b) | [artist\\_name\\_b](artist_url_b) | [album\\_name\\_b](album_url_b) | 0:12 |
                     """
                 ),
             )
