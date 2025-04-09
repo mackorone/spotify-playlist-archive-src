@@ -25,12 +25,11 @@
         - only_fetch_these_playlists
     - Fix code complexity of playlist updater
     - Merge cumulative regeneration code
-    - Create a separate class for SpotifyPlaylist
-        - No concept of "original" vs "unique" name
-        - Consider using library for serialization
+    - Create separate classes for Spotify API and playlist data
+        - Spotify has no concept of "original" vs "unique" name
+        - Use Pydantic for serde for both sets of classes
     - Measure code coverage and add missing tests
         - .coveragerc file should include:
           [report]
           exclude_lines = @external
-    - Reuse scraping code from mackorone/spotify-playlist-publisher
     - Play around with Spotipy: https://github.com/spotipy-dev/spotipy
