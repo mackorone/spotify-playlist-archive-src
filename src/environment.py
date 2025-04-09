@@ -2,16 +2,17 @@
 
 import os
 import pathlib
+from typing import TYPE_CHECKING
 
 from plants.environment import Environment as PlantsEnvironment
 from plants.external import external
 
-# Subclassing pathlib.Path is difficult because the concrete type depends on
-# platform, which is determined at runtime. This second line determines which
-# type to subclass while the first line tricks Pyre into (correctly) thinking
-# that ConcretePathType is valid type.
-ConcretePathType = pathlib.Path
-ConcretePathType = type(pathlib.Path())
+# The type checker can use pathlib.Path, but the runtime needs a concrete type,
+# which depends on platform and is determined by instantiating pathlib.Path.
+if TYPE_CHECKING:
+    ConcretePathType = pathlib.Path
+else:
+    ConcretePathType = type(pathlib.Path())
 
 
 class RelativePath(ConcretePathType):

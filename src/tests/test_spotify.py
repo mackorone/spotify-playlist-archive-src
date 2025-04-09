@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import datetime
+from typing import Any, Dict
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import ANY, AsyncMock, Mock, call, patch
 
@@ -586,6 +587,7 @@ class TestGetPlaylist(SpotifyTestCase):
         )
 
     @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    # pyre-fixme[30]
     async def test_invalid_data(self, mock_get_tracks: Mock) -> None:
         mock_get_tracks.return_value = []
         valid_data = {
@@ -722,7 +724,7 @@ class TestGetTracks(SpotifyTestCase):
         )
 
     async def test_invalid_data(self) -> None:
-        valid_data = {
+        valid_data: Dict[str, Any] = {
             "items": [
                 {
                     "track": {

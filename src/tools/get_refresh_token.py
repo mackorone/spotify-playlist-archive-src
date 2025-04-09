@@ -83,6 +83,7 @@ async def get_refresh_token(
     authorization_code: str,
 ) -> str:
     async with aiohttp.ClientSession() as session:
+        # pyre-fixme[16]
         async with session.post(
             url="https://accounts.spotify.com/api/token",
             data={

@@ -195,9 +195,13 @@ class Spotify:
 
             # Choose the correct method
             func = {
+                # pyre-fixme[16]
                 HttpMethod.GET: self._session.get,
+                # pyre-fixme[16]
                 HttpMethod.PUT: self._session.put,
+                # pyre-fixme[16]
                 HttpMethod.POST: self._session.post,
+                # pyre-fixme[16]
                 HttpMethod.DELETE: self._session.delete,
             }[method]
 
@@ -681,6 +685,7 @@ class Spotify:
         else:
             data = {"grant_type": "client_credentials"}
         async with cls._get_session() as session:
+            # pyre-fixme[16]
             async with session.post(
                 url="https://accounts.spotify.com/api/token",
                 data=data,
