@@ -13,23 +13,73 @@ from typing import (
     Dict,
     List,
     Optional,
+    Sequence,
     Set,
     Type,
     TypeVar,
 )
 
 import aiohttp
+from pydantic import BaseModel
 
-from alias import Alias
 from plants.cache import Cache, NoCache
 from plants.external import external
 from playlist_id import PlaylistID
-from playlist_types import Album, Artist, Owner, Playlist, RecentlyPlayedTrack, Track
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+
+
+class SpotifyOwner(BaseModel):
+    url: str
+    name: str
+
+
+class SpotifyAlbum(BaseModel):
+    url: str
+    name: str
+
+
+class SpotifyArtist(BaseModel):
+    url: str
+    name: str
+
+
+class SpotifyTrack(BaseModel):
+    url: str
+    name: str
+    album: SpotifyAlbum
+    artists: Sequence[SpotifyArtist]
+    duration_ms: int
+    added_at: Optional[datetime.datetime] = None
+
+
+class SpotifyPlaylist(BaseModel):
+    url: str
+    name: str
+    description: str
+    tracks: Sequence[SpotifyTrack]
+    # The unique identifier for a particular playlist version. Note that for
+    # certain personalized playlists, snapshot ID changes with every request
+    # because the timestamp of the request is encoded within the ID.
+    # (https://artists.spotify.com/blog/our-playlist-ecosystem-is-evolving)
+    snapshot_id: str
+    num_followers: Optional[int] = None
+    owner: SpotifyOwner
+
+
+class SpotifyRecentlyPlayedTrack(BaseModel):
+    url: str
+    name: str
+    album: SpotifyAlbum
+    artists: Sequence[SpotifyArtist]
+    popularity: int
+    duration_ms: int
+    context_type: str
+    context_url: str
+    played_at: datetime.datetime
 
 
 #
@@ -398,7 +448,7 @@ class Spotify:
 
     # Note: a track is considered "recently played" if it ends naturally,
     # regardless of how much of the track was actually played
-    async def get_recently_played_tracks(self) -> List[RecentlyPlayedTrack]:
+    async def get_recently_played_tracks(self) -> List[SpotifyRecentlyPlayedTrack]:
         tracks = []
         # The maximum tracks per request is 50. And the API will only ever
         # return the 50 most recent tracks, even if the cursor is set .
@@ -411,8 +461,8 @@ class Spotify:
 
     def _parse_recently_played_tracks(
         self, data: Dict[str, Any]
-    ) -> List[RecentlyPlayedTrack]:
-        tracks: List[RecentlyPlayedTrack] = []
+    ) -> List[SpotifyRecentlyPlayedTrack]:
+        tracks: List[SpotifyRecentlyPlayedTrack] = []
         items = self._extract(data, "items", list, IfNull.RAISE)
         for item in items:
             if not isinstance(item, dict):
@@ -451,7 +501,7 @@ class Spotify:
                 )
                 if not artist_name:
                     logger.warning(f"Empty artist name: {artist_url}")
-                artist_objs.append(Artist(url=artist_url, name=artist_name))
+                artist_objs.append(SpotifyArtist(url=artist_url, name=artist_name))
 
             if not artist_objs:
                 logger.warning(f"Empty track artists: {track_url}")
@@ -482,10 +532,10 @@ class Spotify:
                 )
 
             tracks.append(
-                RecentlyPlayedTrack(
+                SpotifyRecentlyPlayedTrack(
                     url=track_url,
                     name=track_name,
-                    album=Album(
+                    album=SpotifyAlbum(
                         url=album_url,
                         name=album_name,
                     ),
@@ -504,19 +554,15 @@ class Spotify:
         self,
         playlist_id: PlaylistID,
         *,
-        alias: Optional[Alias],
         retry_budget: Optional[RetryBudget] = None,
-    ) -> Playlist:
+    ) -> SpotifyPlaylist:
         href = self._get_playlist_href(playlist_id)
         data = await self._get_with_retry(href, request_retry_budget=retry_budget)
 
         playlist_urls = self._extract(data, "external_urls", dict, IfNull.RAISE)
         playlist_url = self._extract(playlist_urls, "spotify", str, IfNull.COALESCE)
 
-        if alias:
-            name = alias
-        else:
-            name = self._extract(data, "name", str, IfNull.RAISE)
+        name = self._extract(data, "name", str, IfNull.RAISE)
         if not name.strip():
             raise InvalidDataError(f"Empty playlist name: {repr(name)}")
 
@@ -534,20 +580,14 @@ class Spotify:
         if not owner_name:
             logger.warning(f"Empty owner name: {owner_url}")
 
-        return Playlist(
+        return SpotifyPlaylist(
             url=playlist_url,
-            original_name=name,
-            # When fetched, playlists are presumed to have unique names. Later
-            # on, if duplicates are discovered, their unique names get updated
-            # so they can be differentiated. It's bit hacky, but it's easier
-            # than defining separate structs for playlists fetched from Spotify
-            # and playlists read from JSON.
-            unique_name=name,
+            name=name,
             description=self._extract(data, "description", str, IfNull.RAISE),
             tracks=await self._get_tracks(playlist_id, retry_budget=retry_budget),
             snapshot_id=self._extract(data, "snapshot_id", str, IfNull.RAISE),
             num_followers=followers_total,
-            owner=Owner(
+            owner=SpotifyOwner(
                 url=owner_url,
                 name=owner_name,
             ),
@@ -555,7 +595,7 @@ class Spotify:
 
     async def _get_tracks(
         self, playlist_id: PlaylistID, *, retry_budget: Optional[RetryBudget] = None
-    ) -> List[Track]:
+    ) -> List[SpotifyTrack]:
         tracks = []
         href = self._get_tracks_href(playlist_id)
 
@@ -603,7 +643,7 @@ class Spotify:
                     )
                     if not artist_name:
                         logger.warning(f"Empty artist name: {artist_url}")
-                    artist_objs.append(Artist(url=artist_url, name=artist_name))
+                    artist_objs.append(SpotifyArtist(url=artist_url, name=artist_name))
 
                 if not artist_objs:
                     logger.warning(f"Empty track artists: {track_url}")
@@ -619,10 +659,10 @@ class Spotify:
                     added_at = None
 
                 tracks.append(
-                    Track(
+                    SpotifyTrack(
                         url=track_url,
                         name=track_name,
-                        album=Album(
+                        album=SpotifyAlbum(
                             url=album_url,
                             name=album_name,
                         ),
