@@ -113,3 +113,7 @@ venv.bak/
 _cache/
 _history/
 _playlists/
+
+# AI coding assistants
+.aider*
+**/CLAUDE.local.md
