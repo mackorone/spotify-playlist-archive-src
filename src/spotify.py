@@ -470,9 +470,16 @@ class Spotify:
             played_at_string = self._extract(item, "played_at", str, IfNull.RAISE)
             if played_at_string == "1970-01-01T00:00:00Z":
                 raise InvalidDataError(f"Unexpected sential {played_at_string = }")
-            played_at = datetime.datetime.strptime(
-                played_at_string, "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
+
+            # Gracefully handle milliseconds not available
+            try:
+                played_at = datetime.datetime.strptime(
+                    played_at_string, "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+            except ValueError:
+                played_at = datetime.datetime.strptime(
+                    played_at_string, "%Y-%m-%dT%H:%M:%SZ"
+                )
 
             tracks.append(
                 RecentlyPlayedTrack(
