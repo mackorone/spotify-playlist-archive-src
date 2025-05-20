@@ -840,7 +840,7 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
 
         # Use AsyncMocks for async methods
         self.mock_spotify = mock_spotify_class.return_value
-        self.mock_spotify.get_recently_played_tracks = AsyncMock()
+        self.mock_spotify.get_recently_played_tracks.return_value = AsyncMock()
 
     async def asyncTearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -886,7 +886,7 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
         await self._update_play_history()
 
     async def test_request_failed(self) -> None:
-        self.mock_spotify.get_recently_played_tracks.side_effect = RequestFailedError
+        self.mock_spotify.get_recently_played_tracks.return_value.__aiter__.side_effect = RequestFailedError
         # Uncategorized request failures should terminate the program
         with self.assertRaises(RequestFailedError):
             await self._update_play_history()
@@ -929,10 +929,13 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
             )
 
         # Have Spotify return a track corresponding to the bad file
-        self.mock_spotify.get_recently_played_tracks.return_value = [
+        batch = [
             self._get_recently_played_track(
                 track_id="a", played_at=datetime.datetime(year=2025, month=4, day=1)
             )
+        ]
+        self.mock_spotify.get_recently_played_tracks.return_value.__aiter__.return_value = [
+            batch
         ]
 
         # Make sure an error is raised
@@ -996,10 +999,13 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
             )
 
         # Have Spotify return a track corresponding to the bad file
-        self.mock_spotify.get_recently_played_tracks.return_value = [
+        batch = [
             self._get_recently_played_track(
                 track_id="a", played_at=datetime.datetime(year=2025, month=4, day=1)
             )
+        ]
+        self.mock_spotify.get_recently_played_tracks.return_value.__aiter__.return_value = [
+            batch
         ]
 
         # Make sure an error is raised
@@ -1011,11 +1017,14 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
         self.assertEqual(sorted(self.history_dir.rglob("*")), [])
 
         # The first call to get_recently_played_tracks returns a single track
-        self.mock_spotify.get_recently_played_tracks.return_value = [
+        batch = [
             self._get_recently_played_track(
                 track_id="a",
                 played_at=datetime.datetime(year=2025, month=4, day=1, hour=12),
             )
+        ]
+        self.mock_spotify.get_recently_played_tracks.return_value.__aiter__.return_value = [
+            batch
         ]
 
         # Call the method being tested
@@ -1078,31 +1087,37 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
 
         # The second call to get_recently_played_tracks returns multiple
         # tracks, intentionally out of order to test grouping and sorting
-        self.mock_spotify.get_recently_played_tracks.return_value = [
-            # A newer day than before
-            self._get_recently_played_track(
-                track_id="b", played_at=datetime.datetime(year=2025, month=4, day=2)
-            ),
-            # An older day than before
-            self._get_recently_played_track(
-                track_id="c",
-                played_at=datetime.datetime(year=2025, month=3, day=31),
-            ),
-            # The same day as before, exact same time
-            self._get_recently_played_track(
-                track_id="d",
-                played_at=datetime.datetime(year=2025, month=4, day=1, hour=12),
-            ),
-            # The same day as before, 1 hour earlier
-            self._get_recently_played_track(
-                track_id="e",
-                played_at=datetime.datetime(year=2025, month=4, day=1, hour=11),
-            ),
-            # The same day as before, 1 hour later
-            self._get_recently_played_track(
-                track_id="f",
-                played_at=datetime.datetime(year=2025, month=4, day=1, hour=13),
-            ),
+        self.mock_spotify.get_recently_played_tracks.return_value.__aiter__.return_value = [
+            # Suppose the first batch includes three tracks
+            [
+                # A newer day than before
+                self._get_recently_played_track(
+                    track_id="b", played_at=datetime.datetime(year=2025, month=4, day=2)
+                ),
+                # An older day than before
+                self._get_recently_played_track(
+                    track_id="c",
+                    played_at=datetime.datetime(year=2025, month=3, day=31),
+                ),
+                # The same day as before, exact same time
+                self._get_recently_played_track(
+                    track_id="d",
+                    played_at=datetime.datetime(year=2025, month=4, day=1, hour=12),
+                ),
+            ],
+            # The second batch includes the remaining tracks
+            [
+                # The same day as before, 1 hour earlier
+                self._get_recently_played_track(
+                    track_id="e",
+                    played_at=datetime.datetime(year=2025, month=4, day=1, hour=11),
+                ),
+                # The same day as before, 1 hour later
+                self._get_recently_played_track(
+                    track_id="f",
+                    played_at=datetime.datetime(year=2025, month=4, day=1, hour=13),
+                ),
+            ],
         ]
 
         # Call the method being tested

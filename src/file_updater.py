@@ -6,7 +6,7 @@ import datetime
 import difflib
 import logging
 import pathlib
-from typing import Any, Dict, NamedTuple, Optional, Set, TypeVar
+from typing import Any, Dict, List, NamedTuple, Optional, Set, TypeVar
 
 import brotli
 
@@ -32,6 +32,7 @@ from spotify import (
     ResourceNotFoundError,
     RetryBudget,
     Spotify,
+    SpotifyRecentlyPlayedTrack,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -534,7 +535,9 @@ class FileUpdater:
 
         # Get recently played tracks
         logger.info("Getting recently played tracks")
-        recently_played_tracks = await spotify.get_recently_played_tracks()
+        recently_played_tracks: List[SpotifyRecentlyPlayedTrack] = []
+        async for batch in spotify.get_recently_played_tracks():
+            recently_played_tracks += batch
         recently_played_tracks_by_date = collections.defaultdict(list)
         for track in sorted(recently_played_tracks, key=lambda track: track.played_at):
             recently_played_tracks_by_date[track.played_at.date()].append(track)

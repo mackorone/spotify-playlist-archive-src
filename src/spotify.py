@@ -10,6 +10,7 @@ import logging
 from types import TracebackType
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
@@ -448,16 +449,16 @@ class Spotify:
 
     # Note: a track is considered "recently played" if it ends naturally,
     # regardless of how much of the track was actually played
-    async def get_recently_played_tracks(self) -> List[SpotifyRecentlyPlayedTrack]:
-        tracks = []
+    async def get_recently_played_tracks(
+        self,
+    ) -> AsyncIterable[List[SpotifyRecentlyPlayedTrack]]:
         # The maximum tracks per request is 50. And the API will only ever
         # return the 50 most recent tracks, even if the cursor is set .
         href = self.BASE_URL + "/me/player/recently-played?limit=50"
         while href:
             data = await self._get_with_retry(href, request_retry_budget=None)
-            tracks += self._parse_recently_played_tracks(data)
+            yield self._parse_recently_played_tracks(data)
             href = data.get("next")
-        return tracks
 
     def _parse_recently_played_tracks(
         self, data: Dict[str, Any]
