@@ -589,10 +589,10 @@ class TestGetPlaylist(SpotifyTestCase):
             new_callable=AsyncMock,
         )
 
-    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
+    @patch("spotify.Spotify._get_tracks")
     # pyre-fixme[30]
     async def test_invalid_data(self, mock_get_tracks: Mock) -> None:
-        mock_get_tracks.return_value = []
+        mock_get_tracks.return_value.__aiter__.return_value = []
         valid_data = {
             "name": "playlist_name",
             "description": "playlist_description",
@@ -636,8 +636,8 @@ class TestGetPlaylist(SpotifyTestCase):
                 with self.assertRaises(InvalidDataError):
                     await self.spotify.get_playlist(PlaylistID("abc123"))
 
-    @patch("spotify.Spotify._get_tracks", new_callable=AsyncMock)
-    async def test_success(self, mock_get_tracks: AsyncMock) -> None:
+    @patch("spotify.Spotify._get_tracks")
+    async def test_success(self, mock_get_tracks: Mock) -> None:
         track = SpotifyTrack(
             url="track_url",
             name="track_name",
@@ -655,7 +655,8 @@ class TestGetPlaylist(SpotifyTestCase):
             popularity=71,
             added_at=datetime.datetime(2021, 12, 25),
         )
-        mock_get_tracks.return_value = [track]
+        # Return a single batch containing a single track
+        mock_get_tracks.return_value.__aiter__.return_value = [[track]]
         async with self.mock_session.get.return_value as mock_response:
             mock_response.status = 200
             mock_response.json.return_value = {
@@ -760,7 +761,8 @@ class TestGetTracks(SpotifyTestCase):
                     mock_response.status = 200
                     mock_response.json.return_value = data
                 with self.assertRaises(InvalidDataError):
-                    await self.spotify._get_tracks(PlaylistID("abc123"))
+                    async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+                        pass
 
     async def test_empty_playlist(self) -> None:
         async with self.mock_session.get.return_value as mock_response:
@@ -769,7 +771,9 @@ class TestGetTracks(SpotifyTestCase):
                 "items": [],
                 "next": "",
             }
-        tracks = await self.spotify._get_tracks(PlaylistID("abc123"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+            tracks += batch
         self.assertEqual(tracks, [])
 
     async def test_empty_track(self) -> None:
@@ -779,7 +783,9 @@ class TestGetTracks(SpotifyTestCase):
                 "items": [{"track": {}}],
                 "next": "",
             }
-        tracks = await self.spotify._get_tracks(PlaylistID("abc123"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+            tracks += batch
         self.assertEqual(tracks, [])
 
     # Patch the logger to suppress log spew
@@ -791,7 +797,9 @@ class TestGetTracks(SpotifyTestCase):
                 "items": [{"track": {"external_urls": {"spotify": ""}}}],
                 "next": "",
             }
-        tracks = await self.spotify._get_tracks(PlaylistID("abc123"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+            tracks += batch
         self.assertEqual(tracks, [])
 
     # Patch the logger to suppress log spew
@@ -818,7 +826,9 @@ class TestGetTracks(SpotifyTestCase):
                 ],
                 "next": "",
             }
-        tracks = await self.spotify._get_tracks(PlaylistID("abc123"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+            tracks += batch
         self.assertEqual(
             tracks,
             [
@@ -876,7 +886,9 @@ class TestGetTracks(SpotifyTestCase):
                 ],
                 "next": "",
             }
-        tracks = await self.spotify._get_tracks(PlaylistID("abc123"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("abc123")):
+            tracks += batch
         self.assertEqual(
             tracks,
             [
@@ -914,7 +926,9 @@ class TestGetTracks(SpotifyTestCase):
                 {"items": [], "next": "c"},
                 {"items": [], "next": ""},
             ]
-        tracks = await self.spotify._get_tracks(PlaylistID("a"))
+        tracks = []
+        async for batch in self.spotify._get_tracks(PlaylistID("a")):
+            tracks += batch
         self.assertEqual(tracks, [])
         self.mock_session.get.assert_has_calls(
             [

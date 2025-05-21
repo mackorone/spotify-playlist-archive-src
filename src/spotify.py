@@ -610,11 +610,15 @@ class Spotify:
         if not owner_name:
             logger.warning(f"Empty owner name: {owner_url}")
 
+        tracks: List[SpotifyTrack] = []
+        async for batch in self._get_tracks(playlist_id, retry_budget=retry_budget):
+            tracks += batch
+
         return SpotifyPlaylist(
             url=playlist_url,
             name=name,
             description=self._extract(data, "description", str, IfNull.RAISE),
-            tracks=await self._get_tracks(playlist_id, retry_budget=retry_budget),
+            tracks=tracks,
             snapshot_id=self._extract(data, "snapshot_id", str, IfNull.RAISE),
             num_followers=followers_total,
             owner=SpotifyOwner(
@@ -625,11 +629,11 @@ class Spotify:
 
     async def _get_tracks(
         self, playlist_id: PlaylistID, *, retry_budget: Optional[RetryBudget] = None
-    ) -> List[SpotifyTrack]:
-        tracks = []
+    ) -> AsyncIterable[List[SpotifyTrack]]:
         href = self._get_tracks_href(playlist_id)
 
         while href:
+            tracks = []
             data = await self._get_with_retry(href, request_retry_budget=retry_budget)
             items = self._extract(data, "items", list, IfNull.RAISE)
             for item in items:
@@ -704,9 +708,8 @@ class Spotify:
                     )
                 )
 
+            yield tracks
             href = data.get("next")
-
-        return tracks
 
     @classmethod
     def _extract(
