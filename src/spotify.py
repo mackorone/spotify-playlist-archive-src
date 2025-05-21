@@ -54,6 +54,7 @@ class SpotifyTrack(BaseModel):
     album: SpotifyAlbum
     artists: Sequence[SpotifyArtist]
     duration_ms: int
+    popularity: int
     added_at: Optional[datetime.datetime] = None
 
 
@@ -650,6 +651,7 @@ class Spotify:
                     logger.warning(f"Empty track artists: {track_url}")
 
                 duration_ms = self._extract(track, "duration_ms", int, IfNull.RAISE)
+                popularity = self._extract(track, "popularity", int, IfNull.RAISE)
 
                 added_at_string = self._extract(item, "added_at", str, IfNull.COALESCE)
                 if added_at_string and added_at_string != "1970-01-01T00:00:00Z":
@@ -669,6 +671,7 @@ class Spotify:
                         ),
                         artists=artist_objs,
                         duration_ms=duration_ms,
+                        popularity=popularity,
                         added_at=added_at,
                     )
                 )
@@ -711,8 +714,8 @@ class Spotify:
     @classmethod
     def _get_tracks_href(cls, playlist_id: PlaylistID) -> str:
         rest = (
-            "{}/tracks?fields=items(added_at,track(id,external_urls,"
-            "duration_ms,name,album(external_urls,name),artists)),next"
+            "{}/tracks?fields=items(added_at,track(id,external_urls,duration_ms,"
+            "popularity,name,album(external_urls,name),artists)),next"
         )
         template = cls.BASE_URL + "/playlists/" + rest
         return template.format(playlist_id)

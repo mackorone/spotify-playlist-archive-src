@@ -540,6 +540,7 @@ class TestUpdateFilesImpl(IsolatedAsyncioTestCase):
                         ),
                     ],
                     duration_ms=12345,
+                    popularity=71,
                     added_at=self.now,
                 )
             ],
@@ -779,6 +780,7 @@ Snapshot ID: `playlist_snapshot_id`
                         ),
                     ],
                     duration_ms=12345,
+                    popularity=71,
                     added_at=self.now,
                 )
             ],

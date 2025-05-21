@@ -652,6 +652,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 )
             ],
             duration_ms=100,
+            popularity=71,
             added_at=datetime.datetime(2021, 12, 25),
         )
         mock_get_tracks.return_value = [track]
@@ -810,6 +811,7 @@ class TestGetTracks(SpotifyTestCase):
                             },
                             "artists": [],
                             "external_urls": {"spotify": "track_url"},
+                            "popularity": 71,
                         },
                         "added_at": "1970-01-01T00:00:00Z",
                     },
@@ -829,6 +831,7 @@ class TestGetTracks(SpotifyTestCase):
                     ),
                     artists=[],
                     duration_ms=123,
+                    popularity=71,
                     added_at=None,
                 )
             ],
@@ -866,6 +869,7 @@ class TestGetTracks(SpotifyTestCase):
                             "external_urls": {
                                 "spotify": "track_url",
                             },
+                            "popularity": 71,
                         },
                         "added_at": "2021-12-25T00:00:00Z",
                     },
@@ -894,6 +898,7 @@ class TestGetTracks(SpotifyTestCase):
                         ),
                     ],
                     duration_ms=456,
+                    popularity=71,
                     added_at=datetime.datetime(2021, 12, 25),
                 )
             ],
