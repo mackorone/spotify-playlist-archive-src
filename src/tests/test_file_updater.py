@@ -20,6 +20,7 @@ from spotify import (
     RetryBudget,
     SpotifyAlbum,
     SpotifyArtist,
+    SpotifyContext,
     SpotifyOwner,
     SpotifyPlaylist,
     SpotifyRecentlyPlayedTrack,
@@ -861,23 +862,27 @@ class TestUpdatePlayHistory(IsolatedAsyncioTestCase):
         played_at: datetime.datetime,
     ) -> SpotifyRecentlyPlayedTrack:
         return SpotifyRecentlyPlayedTrack(
-            url=f"track_url_{track_id}",
-            name=f"track_name_{track_id}",
-            album=SpotifyAlbum(
-                url=f"album_url_{track_id}",
-                name=f"album_name_{track_id}",
-            ),
-            artists=[
-                SpotifyArtist(
-                    url=f"artist_url_{track_id}",
-                    name=f"artist_name_{track_id}",
+            track=SpotifyTrack(
+                url=f"track_url_{track_id}",
+                name=f"track_name_{track_id}",
+                album=SpotifyAlbum(
+                    url=f"album_url_{track_id}",
+                    name=f"album_name_{track_id}",
                 ),
-            ],
-            popularity=25,
-            duration_ms=12345,
-            context_type=f"context_type_{track_id}",
-            context_url=f"context_url_{track_id}",
+                artists=[
+                    SpotifyArtist(
+                        url=f"artist_url_{track_id}",
+                        name=f"artist_name_{track_id}",
+                    ),
+                ],
+                popularity=25,
+                duration_ms=12345,
+            ),
             played_at=played_at,
+            context=SpotifyContext(
+                type_=f"context_type_{track_id}",
+                url=f"context_url_{track_id}",
+            ),
         )
 
     async def test_empty(self) -> None:

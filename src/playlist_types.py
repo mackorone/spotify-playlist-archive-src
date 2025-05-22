@@ -425,29 +425,29 @@ class PlayHistoryForDate:
                 after_datetime = track.played_at
 
         # Append new tracks
-        for track in recently_played:
-            if after_datetime is not None and track.played_at <= after_datetime:
+        for item in recently_played:
+            if after_datetime is not None and item.played_at <= after_datetime:
                 continue
             tracks.append(
                 RecentlyPlayedTrack(
-                    url=track.url,
-                    name=track.name,
+                    url=item.track.url,
+                    name=item.track.name,
                     album=Album(
-                        url=track.album.url,
-                        name=track.album.name,
+                        url=item.track.album.url,
+                        name=item.track.album.name,
                     ),
                     artists=[
                         Artist(
                             url=artist.url,
                             name=artist.name,
                         )
-                        for artist in track.artists
+                        for artist in item.track.artists
                     ],
-                    popularity=track.popularity,
-                    duration_ms=track.duration_ms,
-                    context_type=track.context_type,
-                    context_url=track.context_url,
-                    played_at=track.played_at,
+                    popularity=item.track.popularity,
+                    duration_ms=item.track.duration_ms,
+                    context_type=(item.context.type_ or "") if item.context else "",
+                    context_url=(item.context.url or "") if item.context else "",
+                    played_at=item.played_at,
                 )
             )
 
