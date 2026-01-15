@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.12.14
+aiohttp==3.13.3
     # via -r /mnt/04A87252A87241EA/Users/macko/Shared/documents/github/spotify-playlist-archive-src/requirements/requirements.in
 aiosignal==1.4.0
     # via aiohttp
@@ -14,11 +14,11 @@ annotated-types==0.7.0
     # via pydantic
 async-timeout==5.0.1
     # via aiohttp
-attrs==25.3.0
+attrs==25.4.0
     # via aiohttp
-brotli==1.1.0
+brotli==1.2.0
     # via -r /mnt/04A87252A87241EA/Users/macko/Shared/documents/github/spotify-playlist-archive-src/requirements/requirements.in
-cfgv==3.4.0
+cfgv==3.5.0
     # via pre-commit
 click==8.1.8
     # via pyre-check
@@ -26,49 +26,49 @@ dataclasses-json==0.5.7
     # via pyre-check
 distlib==0.4.0
     # via virtualenv
-filelock==3.18.0
+filelock==3.20.3
     # via virtualenv
-frozenlist==1.7.0
+frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-identify==2.6.12
+identify==2.6.16
     # via pre-commit
-idna==3.10
+idna==3.11
     # via yarl
-libcst==1.8.2
+libcst==1.8.6
     # via pyre-check
-marshmallow==3.26.1
+marshmallow==3.26.2
     # via
     #   dataclasses-json
     #   marshmallow-enum
 marshmallow-enum==1.5.1
     # via dataclasses-json
-multidict==6.6.3
+multidict==6.7.0
     # via
     #   aiohttp
     #   yarl
 mypy-extensions==1.1.0
     # via typing-inspect
-nodeenv==1.9.1
+nodeenv==1.10.0
     # via pre-commit
 packaging==25.0
     # via marshmallow
-platformdirs==4.3.8
+platformdirs==4.5.1
     # via virtualenv
-pre-commit==4.2.0
+pre-commit==4.5.1
     # via -r requirements/requirements-dev.in
-propcache==0.3.2
+propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
-psutil==7.0.0
+psutil==7.2.1
     # via
     #   pyre-check
     #   testslide
-pydantic==2.11.7
+pydantic==2.12.5
     # via -r /mnt/04A87252A87241EA/Users/macko/Shared/documents/github/spotify-playlist-archive-src/requirements/requirements.in
-pydantic-core==2.33.2
+pydantic-core==2.41.5
     # via pydantic
 pygments==2.19.2
     # via testslide
@@ -76,23 +76,23 @@ pyre-check==0.9.25
     # via -r requirements/requirements-dev.in
 pyre-extensions==0.0.32
     # via pyre-check
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via
     #   libcst
     #   pre-commit
-ruff==0.12.4
+ruff==0.14.11
     # via -r requirements/requirements-dev.in
 tabulate==0.9.0
     # via pyre-check
 testslide==2.7.1
     # via pyre-check
-tomli==2.2.1
+tomli==2.4.0
     # via pyre-check
 tomli-w==1.2.0
     # via pyre-check
 typeguard==2.13.3
     # via testslide
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via
     #   aiosignal
     #   multidict
@@ -102,14 +102,15 @@ typing-extensions==4.14.1
     #   pyre-extensions
     #   typing-inspect
     #   typing-inspection
+    #   virtualenv
 typing-inspect==0.9.0
     # via
     #   dataclasses-json
     #   pyre-check
     #   pyre-extensions
-typing-inspection==0.4.1
+typing-inspection==0.4.2
     # via pydantic
-virtualenv==20.32.0
+virtualenv==20.36.1
     # via pre-commit
-yarl==1.20.1
+yarl==1.22.0
     # via aiohttp
