@@ -6,7 +6,7 @@ from playlist_id import PlaylistID
 class URL:
     BASE = "/playlists"
     HISTORY_BASE = (
-        "https://github.githistory.xyz/mackorone/spotify-playlist-archive/"
+        "https://github.githistory.xyz/mackorone/spotify-playlist-archive-2/"
         "blob/main/playlists"
     )
 
