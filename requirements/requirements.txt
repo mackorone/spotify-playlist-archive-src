@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via -r requirements/requirements.in
 aiosignal==1.4.0
     # via aiohttp
@@ -14,7 +14,7 @@ annotated-types==0.7.0
     # via pydantic
 async-timeout==5.0.1
     # via aiohttp
-attrs==25.4.0
+attrs==26.1.0
     # via aiohttp
 brotli==1.2.0
     # via -r requirements/requirements.in
@@ -24,7 +24,7 @@ frozenlist==1.8.0
     #   aiosignal
 idna==3.11
     # via yarl
-multidict==6.7.0
+multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
@@ -45,5 +45,5 @@ typing-extensions==4.15.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
-yarl==1.22.0
+yarl==1.23.0
     # via aiohttp
