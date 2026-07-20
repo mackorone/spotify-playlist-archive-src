@@ -22,7 +22,7 @@ async def login() -> None:
     query_params = {
         "client_id": client_id,
         "response_type": "code",
-        "redirect_uri": "http://localhost:8000",
+        "redirect_uri": "http://127.0.0.1:8000",
         "scope": " ".join(
             [
                 # For fetching playlists
@@ -40,7 +40,7 @@ async def login() -> None:
     # Print and try to open the URL in the default browser.
     print("Opening the following URL in a browser (at least trying to):")
     print(target_url)
-    os.system("xdg-open '{}'".format(target_url))
+    os.system("open '{}'".format(target_url))
 
     # Set up a temporary HTTP server and listen for the callback
     import socketserver
@@ -89,7 +89,7 @@ async def get_refresh_token(
             data={
                 "grant_type": "authorization_code",
                 "code": authorization_code,
-                "redirect_uri": "http://localhost:8000",
+                "redirect_uri": "http://127.0.0.1:8000",
             },
             auth=aiohttp.BasicAuth(client_id, client_secret),
         ) as response:
